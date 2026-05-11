@@ -1,0 +1,961 @@
+const uuid = 'k1c4d2r0u7t1n9g3b5r8i0d4g6e2p2v2';
+const _G = globalThis as any;
+const _bridgeInitDone = !!_G.__kicadBridgeLoaded;
+const MSG_PREFIX = 'kirouting-integration.';
+
+const BRIDGE_CONFIG = {
+	port: 8765,
+	host: 'localhost',
+	pollInterval: 2000,
+	timeout: 600000,
+};
+
+function dbg(label: string, obj?: any): void {
+	console.log('[KicadBridge][ext] ' + label, obj !== undefined ? obj : '');
+}
+
+function mil_to_mm(value: number): number {
+	return value * 0.0254;
+}
+
+function t(key: string, ...args: any[]): string {
+	return eda.sys_I18n.text(key, uuid, undefined, ...args);
+}
+
+// ─── Layer Mapping ───
+
+const EASYEDA_TO_KICAD_LAYER: Record<number, string> = {
+	1: 'F.Cu',
+	2: 'B.Cu',
+	15: 'In1.Cu', 16: 'In2.Cu', 17: 'In3.Cu', 18: 'In4.Cu',
+	19: 'In5.Cu', 20: 'In6.Cu', 21: 'In7.Cu', 22: 'In8.Cu',
+	23: 'In9.Cu', 24: 'In10.Cu', 25: 'In11.Cu', 26: 'In12.Cu',
+	27: 'In13.Cu', 28: 'In14.Cu', 29: 'In15.Cu', 30: 'In16.Cu',
+	31: 'In17.Cu', 32: 'In18.Cu', 33: 'In19.Cu', 34: 'In20.Cu',
+	35: 'In21.Cu', 36: 'In22.Cu', 37: 'In23.Cu', 38: 'In24.Cu',
+	39: 'In25.Cu', 40: 'In26.Cu', 41: 'In27.Cu', 42: 'In28.Cu',
+	43: 'In29.Cu', 44: 'In30.Cu',
+};
+
+// ─── Bridge Client ───
+
+class BridgeClient {
+	private baseUrl: string;
+
+	constructor() {
+		this.baseUrl = `http://${BRIDGE_CONFIG.host}:${BRIDGE_CONFIG.port}`;
+	}
+
+	async checkServer(): Promise<boolean> {
+		try {
+			const resp = await eda.sys_ClientUrl.request(`${this.baseUrl}/api/test`);
+			if (!resp.ok) return false;
+			const data = await resp.json();
+			return data?.status === 'ok';
+		} catch {
+			return false;
+		}
+	}
+
+	async submitExtraComponents(components: any[]): Promise<void> {
+		const CHUNK_SIZE = 20;
+		for (let i = 0; i < components.length; i += CHUNK_SIZE) {
+			const chunk = components.slice(i, i + CHUNK_SIZE);
+			const body = JSON.stringify({ components: chunk, clear: i === 0 });
+			const resp = await eda.sys_ClientUrl.request(`${this.baseUrl}/api/extra-components`, 'POST', body);
+			if (!resp.ok) {
+				console.error('[KicadBridge] extra-components chunk failed');
+			}
+		}
+	}
+
+	async submitRoutingJob(pcbData: any): Promise<string> {
+		const body = JSON.stringify(pcbData);
+		console.log(`[KicadBridge] Submit body size: ${body.length} bytes, components in JSON: ${(JSON.parse(body)).components.length}`);
+		const resp = await eda.sys_ClientUrl.request(`${this.baseUrl}/api/route`, 'POST', body);
+		if (!resp.ok) throw new Error(await resp.text() || 'Failed to submit');
+		const data = await resp.json();
+		if (!data?.job_id) throw new Error(data?.error ?? 'No job_id');
+		return data.job_id;
+	}
+
+	async pollStatus(jobId: string): Promise<string> {
+		const resp = await eda.sys_ClientUrl.request(`${this.baseUrl}/api/status/${jobId}`);
+		if (!resp.ok) return 'unknown';
+		const data = await resp.json();
+		return data?.status ?? 'unknown';
+	}
+
+	async getResult(jobId: string): Promise<any> {
+		const resp = await eda.sys_ClientUrl.request(`${this.baseUrl}/api/result/${jobId}`);
+		if (!resp.ok) throw new Error('Failed to get result');
+		return await resp.json();
+	}
+
+	async cancelJob(jobId: string): Promise<void> {
+		await eda.sys_ClientUrl.request(`${this.baseUrl}/api/cancel/${jobId}`, 'POST');
+	}
+}
+
+// ─── PCB Data Collection ───
+
+async function collectLayers(): Promise<Array<{id: number; name: string}>> {
+	const result: Array<{id: number; name: string}> = [];
+	const layers = await eda.pcb_Layer.getAllLayers();
+	for (const layer of layers) {
+		const layerAny = layer as any;
+		const id = layerAny.layerId ?? layerAny.id;
+		if (id === undefined) continue;
+		if (id === 1 || id === 2) {
+			result.push({ id, name: EASYEDA_TO_KICAD_LAYER[id] });
+		} else if (EASYEDA_TO_KICAD_LAYER[id]) {
+			const layerType = (layerAny.type ?? '').toUpperCase();
+			const layerName = layerAny.name ?? '';
+			if (layerType === 'SIGNAL' && !layerName.startsWith('Inner')) {
+				result.push({ id, name: EASYEDA_TO_KICAD_LAYER[id] });
+			}
+		}
+	}
+	if (result.length === 0) {
+		result.push({ id: 1, name: 'F.Cu' });
+		result.push({ id: 2, name: 'B.Cu' });
+	}
+	return result;
+}
+
+async function collectFullPCBData(config: any): Promise<any> {
+	const layers = await collectLayers();
+	const components: any[] = [];
+	const allComps = await eda.pcb_PrimitiveComponent.getAll();
+
+	for (const comp of allComps) {
+		const compAny = comp as any;
+		const primitiveId = compAny.primitiveId ?? compAny.id ?? '';
+		const designator = compAny.designator ?? compAny.name ?? '';
+		const x = compAny.x ?? 0;
+		const y = compAny.y ?? 0;
+		const layer = compAny.layer ?? 1;
+		const rotation = compAny.rotation ?? 0;
+
+		const pads: any[] = [];
+		if (primitiveId) {
+			const pins = await eda.pcb_PrimitiveComponent.getAllPinsByPrimitiveId(primitiveId);
+			if (pins) {
+				let debuggedFirst = (components.length > 0);
+				for (const pin of pins) {
+					let pinData: any;
+					try {
+						pinData = JSON.parse(JSON.stringify(pin));
+					} catch (e) {
+						pinData = pin as any;
+					}
+					const padArr = pinData.pad;
+					let padShape = 'round';
+					let padWidth = 0;
+					let padHeight = 0;
+					if (Array.isArray(padArr) && padArr.length >= 2) {
+						padShape = (padArr[0] || 'round').toString().toLowerCase();
+						padWidth = padArr[1] || 0;
+						padHeight = padArr.length >= 3 ? (padArr[2] || padWidth) : padWidth;
+					}
+					if (!debuggedFirst) {
+						console.log('[KicadBridge] COLLECT pad raw:', JSON.stringify(padArr), 'parsed w:', padWidth, 'h:', padHeight);
+						debuggedFirst = true;
+					}
+					let drill = 0;
+					const holeData = pinData.hole;
+					if (Array.isArray(holeData) && holeData.length >= 2) {
+						drill = holeData[1] || 0;
+					}
+					pads.push({
+						number: pinData.padNumber ?? pinData.number ?? '',
+						x: pinData.x ?? 0,
+						y: pinData.y ?? 0,
+						net: pinData.net ?? '',
+						layer: pinData.layer ?? layer,
+						shape: padShape,
+						width: padWidth,
+						height: padHeight,
+						drill: drill,
+						rotation: pinData.rotation ?? 0,
+					});
+				}
+			}
+		}
+
+		components.push({ designator, x, y, layer, rotation, pads });
+	}
+
+	const netNames: string[] = await eda.pcb_Net.getAllNetsName();
+
+	// Collect standalone pads — filter out duplicates that already exist in components
+	try {
+		const padApi = (eda as any).pcb_PrimitivePad;
+		if (padApi && typeof padApi.getAll === 'function') {
+			const standalonePads = await padApi.getAll();
+			if (standalonePads && standalonePads.length > 0) {
+				// Build a set of existing component pad positions (rounded to 0.1mil for matching)
+				const existingPositions = new Set<string>();
+				for (const comp of components) {
+					for (const pad of (comp as any).pads || []) {
+						const key = `${Math.round(pad.x * 10)},${Math.round(pad.y * 10)}`;
+						existingPositions.add(key);
+					}
+				}
+				let spIdx = 0;
+				for (const sp of standalonePads) {
+					let spData: any;
+					try { spData = JSON.parse(JSON.stringify(sp)); } catch (e) { spData = sp as any; }
+					const spX = spData.x ?? 0;
+					const spY = spData.y ?? 0;
+					// Skip if this pad position already exists in a component
+					const posKey = `${Math.round(spX * 10)},${Math.round(spY * 10)}`;
+					if (existingPositions.has(posKey)) continue;
+
+					const padArr = spData.pad;
+					let padShape = 'round';
+					let padWidth = 0;
+					let padHeight = 0;
+					if (Array.isArray(padArr) && padArr.length >= 2) {
+						padShape = (padArr[0] || 'round').toString().toLowerCase();
+						padWidth = padArr[1] || 0;
+						padHeight = padArr.length >= 3 ? (padArr[2] || padWidth) : padWidth;
+					}
+					let drill = 0;
+					const holeData = spData.hole;
+					if (Array.isArray(holeData) && holeData.length >= 2) {
+						drill = holeData[1] || 0;
+					}
+					components.push({
+						designator: `_PAD${spIdx}`,
+						x: spX, y: spY, layer: spData.layer ?? 1, rotation: 0,
+						pads: [{
+							number: spData.padNumber ?? '1',
+							x: spX, y: spY,
+							net: spData.net ?? '',
+							layer: spData.layer ?? 1,
+							shape: padShape,
+							width: padWidth,
+							height: padHeight,
+							drill: drill,
+							rotation: spData.rotation ?? 0,
+						}],
+					});
+					spIdx++;
+				}
+				console.log('[KicadBridge] Standalone pads: added', spIdx, 'truly standalone (filtered from', standalonePads.length, 'total)');
+			}
+		}
+	} catch (e: any) {
+		console.log('[KicadBridge] standalone pad collection error:', e?.message ?? e);
+	}
+
+	const existingTracks: any[] = [];
+	const allLines = await eda.pcb_PrimitiveLine.getAll();
+	for (const line of allLines) {
+		const lineAny = line as any;
+		const net = lineAny.net ?? '';
+		if (!net) continue;
+		existingTracks.push({
+			net, layer: lineAny.layer ?? 1,
+			startX: lineAny.startX ?? 0, startY: lineAny.startY ?? 0,
+			endX: lineAny.endX ?? 0, endY: lineAny.endY ?? 0,
+			width: lineAny.lineWidth ?? lineAny.width ?? 10,
+		});
+	}
+
+	const existingVias: any[] = [];
+	const allVias = await eda.pcb_PrimitiveVia.getAll();
+	for (const via of allVias) {
+		const viaAny = via as any;
+		const net = viaAny.net ?? '';
+		if (!net) continue;
+		existingVias.push({
+			net, x: viaAny.x ?? 0, y: viaAny.y ?? 0,
+			holeDiameter: viaAny.holeDiameter ?? 12, diameter: viaAny.diameter ?? 24,
+			startLayer: viaAny.startLayer ?? 1, endLayer: viaAny.endLayer ?? 2,
+		});
+	}
+
+		// Debug: log all unique layers found in lines
+		const lineLayers = new Set<number>();
+		for (const line of allLines) {
+			const lineAny = line as any;
+			const l = lineAny.layer ?? 0;
+			if (l > 0) lineLayers.add(l);
+		}
+		console.log('[KicadBridge] Line layers found:', Array.from(lineLayers).sort().join(','));
+
+		const BOARD_OUTLINE_LAYER = 11;
+		const outlineLines: any[] = [];
+		for (const line of allLines) {
+			const lineAny = line as any;
+			if ((lineAny.layer ?? 0) === BOARD_OUTLINE_LAYER) {
+				outlineLines.push({
+					startX: lineAny.startX ?? 0, startY: lineAny.startY ?? 0,
+					endX: lineAny.endX ?? 0, endY: lineAny.endY ?? 0,
+				});
+			}
+		}
+
+		const outlineArcs: any[] = [];
+		try {
+			const allArcs = await eda.pcb_PrimitiveArc.getAll();
+			if (allArcs) {
+				for (const arc of allArcs) {
+					const arcAny = arc as any;
+					if ((arcAny.layer ?? 0) === BOARD_OUTLINE_LAYER) {
+						outlineArcs.push({
+							startX: arcAny.startX ?? 0, startY: arcAny.startY ?? 0,
+							endX: arcAny.endX ?? 0, endY: arcAny.endY ?? 0,
+							arcAngle: arcAny.arcAngle ?? 0,
+						});
+					}
+				}
+			}
+		} catch (e: any) {
+			console.log('[KicadBridge] board outline arcs error:', e?.message ?? e);
+		}
+
+		// Collect board outline from polylines on layer 11
+		try {
+			const allPolylines = await eda.pcb_PrimitivePolyline.getAll();
+			if (allPolylines) {
+				console.log('[KicadBridge] Total polylines:', allPolylines.length);
+				for (const poly of allPolylines) {
+					const polyAny = poly as any;
+					let polyLayer = polyAny.layer ?? 0;
+					if (polyLayer === 0 && typeof polyAny.getState_Layer === 'function') {
+						polyLayer = polyAny.getState_Layer();
+					}
+					if (polyLayer !== BOARD_OUTLINE_LAYER) continue;
+
+					// Debug: inspect polyline position properties
+					const polyX = polyAny.x ?? 0;
+					const polyY = polyAny.y ?? 0;
+					console.log('[KicadBridge] Polyline x,y:', polyX, polyY);
+					try {
+						const allProps = JSON.parse(JSON.stringify(polyAny));
+						console.log('[KicadBridge] Polyline keys:', Object.keys(allProps).join(','));
+						console.log('[KicadBridge] Polyline obj (no polygon):', JSON.stringify(
+							Object.fromEntries(Object.entries(allProps).filter(([k]) => k !== 'polygon' && k !== 'polygonSource'))
+						));
+					} catch(e2) { console.log('[KicadBridge] serialize err:', e2); }
+					console.log('[KicadBridge] First comp pos:', components.length > 0 ? components[0].x + ',' + components[0].y : 'none');
+
+					// Extract polygon source via getter methods (EasyEDA proxied objects)
+					let src: any[] = [];
+					try {
+						const polygon = typeof polyAny.getState_Polygon === 'function'
+							? polyAny.getState_Polygon() : null;
+						if (polygon && typeof polygon.getSource === 'function') {
+							src = polygon.getSource() || [];
+						}
+					} catch (_) {}
+					// Fallback: JSON serialization
+					if (src.length === 0) {
+						try {
+							const s = JSON.parse(JSON.stringify(polyAny));
+							const po = s.polygon ?? s.polygonSource;
+							src = Array.isArray(po) ? po : (po?.source ?? []);
+						} catch (_) {}
+					}
+					console.log('[KicadBridge] Outline source (' + src.length + '):', JSON.stringify(src.slice(0, 20)));
+					if (src.length === 0) continue;
+
+					// R rectangle mode: R x y width height rotation round
+					if (src[0] === 'R' && src.length >= 7) {
+						const rx = src[1], ry = src[2], rw = src[3], rh = src[4];
+						outlineLines.push(
+							{ startX: rx, startY: ry, endX: rx + rw, endY: ry },
+							{ startX: rx + rw, startY: ry, endX: rx + rw, endY: ry - rh },
+							{ startX: rx + rw, startY: ry - rh, endX: rx, endY: ry - rh },
+							{ startX: rx, startY: ry - rh, endX: rx, endY: ry },
+						);
+						continue;
+					}
+					// CIRCLE mode: CIRCLE cx cy radius
+					if (src[0] === 'CIRCLE' && src.length >= 4) {
+						const cx = src[1], cy = src[2], r = src[3];
+						const n = 24;
+						for (let j = 0; j < n; j++) {
+							const a1 = (2 * Math.PI * j) / n;
+							const a2 = (2 * Math.PI * (j + 1)) / n;
+							outlineLines.push({
+								startX: cx + r * Math.cos(a1), startY: cy + r * Math.sin(a1),
+								endX: cx + r * Math.cos(a2), endY: cy + r * Math.sin(a2),
+							});
+						}
+						continue;
+					}
+
+					// Parse mixed L / ARC / CARC format
+					let curX = 0, curY = 0, hasStart = false;
+					let si = 0;
+					while (si < src.length) {
+						const el = src[si];
+						if (typeof el === 'number') {
+							if (!hasStart) {
+								curX = el; curY = src[si + 1]; hasStart = true; si += 2;
+							} else {
+								outlineLines.push({ startX: curX, startY: curY, endX: el, endY: src[si + 1] });
+								curX = el; curY = src[si + 1]; si += 2;
+							}
+						} else if (el === 'L') {
+							si++;
+						} else if (el === 'ARC' || el === 'CARC') {
+							si++;
+							const aa = src[si], ex = src[si + 1], ey = src[si + 2];
+							outlineArcs.push({ startX: curX, startY: curY, arcAngle: aa, endX: ex, endY: ey });
+							curX = ex; curY = ey; si += 3;
+						} else if (el === 'C') {
+							// Bezier: read 4-number groups (control pts + endpoint), approximate
+							si++;
+							let bx = curX, by = curY;
+							while (si + 3 < src.length && typeof src[si] === 'number') {
+								si += 2; // skip control point pair
+								if (si + 1 < src.length && typeof src[si] === 'number') {
+									bx = src[si]; by = src[si + 1]; si += 2;
+								}
+							}
+							outlineLines.push({ startX: curX, startY: curY, endX: bx, endY: by });
+							curX = bx; curY = by;
+						} else {
+							si++;
+						}
+					}
+				}
+			}
+		} catch (e: any) {
+			console.log('[KicadBridge] board outline polylines error:', e?.message ?? e);
+		}
+		console.log('[KicadBridge] Board outline: ' + outlineLines.length + ' lines, ' + outlineArcs.length + ' arcs');
+
+	return {
+		board: { layers: layers.map(l => l.id), outline: [], outlineLines, outlineArcs, stackup: [], boardThickness: 1.6 },
+		components,
+		nets: netNames.filter(n => n && !n.startsWith('unconnected-')),
+		existing_tracks: existingTracks,
+		existing_vias: existingVias,
+		routing_config: {
+			routing_mode: 'single_ended',
+			nets_to_route: config.nets_to_route || ['*'],
+			track_width: config.track_width || 10,
+			clearance: config.clearance || 8,
+			board_edge_clearance: config.board_edge_clearance || 0,
+			via_size: config.via_size || 24,
+			via_drill: config.via_drill || 12,
+			layers_to_use: config.layers_to_use || [1, 2],
+			grid_step: config.grid_step || 6,
+			via_cost: config.via_cost || 30,
+			max_ripup: config.max_ripup || 5,
+			stub_layer_swap: config.stub_layer_swap !== false,
+			power_nets: config.power_nets || '',
+			power_widths: config.power_widths || '',
+			layer_costs: config.layer_costs || '',
+		},
+	};
+}
+
+// ─── Result Applier ───
+
+async function parallelBatch<T>(items: T[], fn: (item: T) => Promise<void>, concurrency = 50): Promise<number> {
+	let ok = 0;
+	for (let i = 0; i < items.length; i += concurrency) {
+		const batch = items.slice(i, i + concurrency);
+		const results = await Promise.allSettled(batch.map(fn));
+		ok += results.filter(r => r.status === 'fulfilled').length;
+	}
+	return ok;
+}
+
+async function applyResults(result: any, netsToRoute: string[]): Promise<{tracksCreated: number; viasCreated: number; tracksRemoved: number}> {
+	const netsSet = new Set(netsToRoute);
+
+	// Parallel delete existing lines & vias on target nets
+	let tracksRemoved = 0;
+	try {
+		const [allLines, allVias] = await Promise.all([
+			eda.pcb_PrimitiveLine.getAll(),
+			eda.pcb_PrimitiveVia.getAll(),
+		]);
+		const lineIdsToDelete = (allLines || [])
+			.filter((l: any) => netsSet.has((l as any).net ?? ''))
+			.map((l: any) => (l as any).primitiveId ?? (l as any).id ?? '')
+			.filter((id: string) => id);
+		const viaIdsToDelete = (allVias || [])
+			.filter((v: any) => netsSet.has((v as any).net ?? ''))
+			.map((v: any) => (v as any).primitiveId ?? (v as any).id ?? '')
+			.filter((id: string) => id);
+
+		tracksRemoved = await parallelBatch(lineIdsToDelete, async (id) => {
+			await eda.pcb_PrimitiveLine.delete(id);
+		});
+		await parallelBatch(viaIdsToDelete, async (id) => {
+			await eda.pcb_PrimitiveVia.delete(id);
+		});
+	} catch (e: any) {
+		console.log('[KicadBridge] cleanup error:', e?.message ?? e);
+	}
+
+	const tracks = result.tracks || [];
+	const vias = result.vias || [];
+	console.log(`[KicadBridge] Creating ${tracks.length} tracks, ${vias.length} vias (parallel batch)`);
+
+	// Parallel create tracks
+	const tracksCreated = await parallelBatch(tracks, async (track: any) => {
+		await eda.pcb_PrimitiveLine.create(
+			track.net, track.layer as any,
+			Math.round(track.startX), Math.round(track.startY),
+			Math.round(track.endX), Math.round(track.endY),
+			Math.round(track.width), false,
+		);
+	});
+
+	// Parallel create vias
+	const viasCreated = await parallelBatch(vias, async (via: any) => {
+		await eda.pcb_PrimitiveVia.create(
+			via.net, via.x, via.y, via.holeDiameter, via.diameter,
+		);
+	});
+
+	return { tracksCreated, viasCreated };
+}
+
+// ─── MessageBus Communication with iframe ───
+
+function sendToIframe(topic: string, data: any): void {
+	const fullTopic = MSG_PREFIX + topic;
+	if (typeof eda.sys_MessageBus.publish === 'function') {
+		eda.sys_MessageBus.publish(fullTopic, JSON.stringify(data));
+	} else if (typeof eda.sys_MessageBus.push === 'function') {
+		eda.sys_MessageBus.push(fullTopic, JSON.stringify(data));
+	}
+}
+
+function onIframeMessage(topic: string, handler: (data: any) => void): void {
+	const fullTopic = MSG_PREFIX + topic;
+	eda.sys_MessageBus.subscribe(fullTopic, (msg: any) => {
+		try {
+			handler(typeof msg === 'string' ? JSON.parse(msg) : msg);
+		} catch (e) {
+			console.error('MessageBus parse error:', e);
+		}
+	});
+}
+
+// ─── Message Handlers ───
+
+let currentJobId: string | null = _G.__kicadBridgeJobId ?? null;
+let isRoutingInProgress = _G.__kicadBridgeRouting ?? false;
+
+const _generation = (_G.__kicadBridgeGeneration ?? 0) + 1;
+_G.__kicadBridgeGeneration = _generation;
+_G.__kicadBridgeLoaded = true;
+
+onIframeMessage('start-routing', async (config: any) => {
+	if (_G.__kicadBridgeGeneration !== _generation) return;
+	dbg('start-routing received');
+
+	if (isRoutingInProgress) {
+		sendToIframe('routing-complete', { error: 'A routing job is already in progress. Please wait or cancel it first.' });
+		return;
+	}
+	isRoutingInProgress = true; _G.__kicadBridgeRouting = true;
+
+	try {
+	const client = new BridgeClient();
+
+	const serverOk = await client.checkServer();
+	if (!serverOk) {
+		sendToIframe('routing-complete', { error: 'Bridge server is not running. Please start: cd bridge_server && python server.py' });
+		return;
+	}
+
+	// Validate parameters against DRC rules
+	try {
+		const drcApi = (eda as any).pcb_Drc ?? (eda as any).PCB_Drc;
+		if (drcApi && typeof drcApi.getCurrentRuleConfiguration === 'function') {
+			const drcData = await drcApi.getCurrentRuleConfiguration();
+			const cfg = drcData?.config;
+			if (cfg) {
+				console.log('[KicadBridge] DRC rule name:', cfg.name);
+				const errors: string[] = [];
+
+				const drcToMm = (value: number, unit: string | undefined): number => {
+					if (!unit || unit === 'mm') return value;
+					if (unit === 'mil') return value * 0.0254;
+					if (unit === 'inch' || unit === 'in') return value * 25.4;
+					return value;
+				};
+
+				const DRC_EPSILON = 0.001;
+				const lessThan = (a: number, b: number) => a < b - DRC_EPSILON;
+
+				// Extract min track width
+				const trackSection = cfg.Physics?.Track?.copperThickness1oz;
+				const trackUnit: string | undefined = trackSection?.unit;
+				const trackData = trackSection?.form?.data?.['1'];
+				const minTrackWidth = drcToMm(trackData?.minValue ?? 0, trackUnit);
+				if (minTrackWidth > 0 && lessThan(mil_to_mm(config.track_width || 0), minTrackWidth)) {
+					errors.push(`Track Width (${(mil_to_mm(config.track_width || 0)).toFixed(3)}mm) < DRC minimum (${minTrackWidth.toFixed(3)}mm)`);
+				}
+
+				// Extract min via size
+				const viaSection = cfg.Physics?.['Via Size']?.viaSize;
+				const viaUnit: string | undefined = viaSection?.unit;
+				const viaData = viaSection?.form;
+				const minViaOuter = drcToMm(viaData?.viaOuterdiameterMin ?? 0, viaUnit);
+				const minViaDrill = drcToMm(viaData?.viaInnerdiameterMin ?? 0, viaUnit);
+				if (minViaOuter > 0 && lessThan(mil_to_mm(config.via_size || 0), minViaOuter)) {
+					errors.push(`Via Size (${(mil_to_mm(config.via_size || 0)).toFixed(3)}mm) < DRC minimum (${minViaOuter.toFixed(3)}mm)`);
+				}
+				if (minViaDrill > 0 && lessThan(mil_to_mm(config.via_drill || 0), minViaDrill)) {
+					errors.push(`Via Drill (${(mil_to_mm(config.via_drill || 0)).toFixed(3)}mm) < DRC minimum (${minViaDrill.toFixed(3)}mm)`);
+				}
+
+				// Extract spacing values
+				const spacingSection = cfg.Spacing?.['Safe Spacing']?.copperThickness1oz;
+				const spacingUnit: string | undefined = spacingSection?.unit;
+				const spacingTable = spacingSection?.tables?.['1']?.content;
+
+				// Board outline clearance (row 11, col 0 = Track)
+				if (Array.isArray(spacingTable) && spacingTable.length > 11) {
+					const boardOutlineRow = spacingTable[11];
+					const minEdgeClearance = drcToMm(Array.isArray(boardOutlineRow) ? boardOutlineRow[0] : 0, spacingUnit);
+					const effectiveMinEdge = minEdgeClearance + mil_to_mm(config.track_width || 0) / 2;
+					const userEdgeClearance = mil_to_mm(config.board_edge_clearance || 0);
+					if (userEdgeClearance > 0 && lessThan(userEdgeClearance, effectiveMinEdge)) {
+						errors.push(`Board Edge Clearance (${userEdgeClearance.toFixed(3)}mm) < effective minimum (${effectiveMinEdge.toFixed(3)}mm = ${minEdgeClearance.toFixed(3)}mm DRC + ${(mil_to_mm(config.track_width || 0) / 2).toFixed(3)}mm half track width)`);
+					}
+				}
+
+				// Track-to-track clearance (row 0, col 0)
+				if (Array.isArray(spacingTable) && spacingTable.length > 0) {
+					const minClearance = drcToMm(spacingTable[0]?.[0] ?? 0, spacingUnit);
+					if (minClearance > 0 && lessThan(mil_to_mm(config.clearance || 0), minClearance)) {
+						errors.push(`Clearance (${(mil_to_mm(config.clearance || 0)).toFixed(3)}mm) < DRC minimum (${minClearance.toFixed(3)}mm)`);
+					}
+				}
+
+				if (errors.length > 0) {
+					const errorMsg = 'DRC validation failed:\n' + errors.join('\n');
+					console.log('[KicadBridge] DRC BLOCKED:', errorMsg);
+					eda.sys_Dialog.showInformationMessage(errorMsg, 'DRC Validation');
+					sendToIframe('routing-complete', { error: errorMsg });
+					throw new Error('__DRC_BLOCKED__');
+				}
+			} else {
+				console.log('[KicadBridge] DRC config is empty, skipping validation');
+			}
+		} else {
+			console.log('[KicadBridge] pcb_Drc API not available, skipping DRC validation');
+		}
+	} catch (e: any) {
+		if (e?.message === '__DRC_BLOCKED__') throw e;
+		console.log('[KicadBridge] DRC validation skipped:', e?.message ?? e);
+	}
+
+	const t_start = Date.now();
+		sendToIframe('routing-progress', { percent: 10, message: 'Collecting PCB data...' });
+
+	try {
+		const padApi = (eda as any).pcb_PrimitivePad;
+		const padApi2 = (eda as any).pcb_Pad;
+		console.log('[KicadBridge] pcb_PrimitivePad exists:', !!padApi);
+		console.log('[KicadBridge] pcb_Pad exists:', !!padApi2);
+		if (padApi && typeof padApi.getAll === 'function') {
+			const allPads = await padApi.getAll();
+			console.log('[KicadBridge] PrimitivePad.getAll count:', allPads ? allPads.length : 0);
+			if (allPads && allPads.length > 0) {
+				console.log('[KicadBridge] STANDALONE PAD:', JSON.stringify(allPads[0]));
+			}
+		}
+		if (padApi2 && typeof padApi2.getAll === 'function') {
+			const allPads2 = await padApi2.getAll();
+			console.log('[KicadBridge] Pad.getAll count:', allPads2 ? allPads2.length : 0);
+			if (allPads2 && allPads2.length > 0) {
+				console.log('[KicadBridge] PAD2:', JSON.stringify(allPads2[0]));
+			}
+		}
+	} catch (e) {
+		console.log('[KicadBridge] pad API error:', e);
+	}
+
+	let pcbData: any;
+	try {
+		pcbData = await collectFullPCBData(config);
+		console.log(`[TIMING] collect: ${Date.now() - t_start}ms`);
+	} catch (e: any) {
+		sendToIframe('routing-complete', { error: `Data collection failed: ${e?.message ?? e}` });
+		return;
+	}
+
+	if (pcbData.nets.length === 0) {
+		sendToIframe('routing-complete', { error: 'No nets found on PCB' });
+		return;
+	}
+
+	sendToIframe('routing-progress', { percent: 15, message: 'Submitting to routing engine...' });
+
+	const regularComps = pcbData.components.filter((c: any) => !c.designator.startsWith('_PAD'));
+	const standalonePadComps = pcbData.components.filter((c: any) => c.designator.startsWith('_PAD'));
+
+	let jobId: string;
+	try {
+		if (standalonePadComps.length > 0) {
+			await client.submitExtraComponents(standalonePadComps);
+			console.log(`[KicadBridge] Sent ${standalonePadComps.length} standalone pads as obstacles`);
+		}
+		pcbData.components = regularComps;
+		jobId = await client.submitRoutingJob(pcbData);
+		console.log(`[TIMING] submit: ${Date.now() - t_start}ms`);
+		currentJobId = jobId; _G.__kicadBridgeJobId = jobId;
+	} catch (e: any) {
+		sendToIframe('routing-complete', { error: `Submit failed: ${e?.message ?? e}` });
+		return;
+	}
+
+	sendToIframe('routing-progress', { percent: 20, message: 'Routing in progress...' });
+
+	// Poll until terminal status or timeout
+	const startTime = Date.now();
+	let finalStatus = '';
+	while (Date.now() - startTime < BRIDGE_CONFIG.timeout) {
+		const status = await client.pollStatus(jobId);
+		if (status === 'completed' || status === 'failed' || status === 'cancelled') {
+			finalStatus = status;
+			break;
+		}
+		const progressMap: Record<string, number> = { pending: 25, converting: 30, routing: 60, converting_back: 85 };
+		const pct = progressMap[status] ?? 50;
+		sendToIframe('routing-progress', { percent: pct, message: `Status: ${status}` });
+
+		await new Promise<void>(resolve => {
+			eda.sys_Timer.setTimeoutTimer('poll-timer', BRIDGE_CONFIG.pollInterval, () => resolve());
+		});
+	}
+
+	// If loop exited by timeout, do one final check
+	if (!finalStatus) {
+		finalStatus = await client.pollStatus(jobId);
+		console.log(`[KicadBridge] Poll timeout, final status: ${finalStatus}`);
+	}
+
+	// Only proceed to fetch result if routing actually completed
+	if (finalStatus !== 'completed') {
+		const elapsed = Math.round((Date.now() - startTime) / 1000);
+		sendToIframe('routing-complete', { error: `Routing did not complete (status: ${finalStatus}, waited ${elapsed}s). The board may be too complex.` });
+		currentJobId = null; _G.__kicadBridgeJobId = null;
+		return;
+	}
+
+	let result: any;
+	try {
+		console.log(`[TIMING] route+poll: ${Date.now() - t_start}ms`);
+			result = await client.getResult(jobId);
+		console.log(`[KicadBridge] Result received: status=${result.status}, tracks=${(result.tracks||[]).length}, vias=${(result.vias||[]).length}`);
+	} catch (e: any) {
+		sendToIframe('routing-complete', { error: `Get result failed: ${e?.message ?? e}` });
+		currentJobId = null; _G.__kicadBridgeJobId = null;
+		return;
+	}
+
+	if (result.status === 'failed' || result.status === 'cancelled') {
+		sendToIframe('routing-complete', { error: result.error || 'Routing failed' });
+		currentJobId = null; _G.__kicadBridgeJobId = null;
+		return;
+	}
+
+	sendToIframe('routing-progress', { percent: 90, message: 'Writing results to PCB...' });
+
+	let tracksCreated = 0;
+	let viasCreated = 0;
+	try {
+		const netsToRoute = config.nets_to_route || [];
+		const t_apply0 = Date.now();
+			const applied = await applyResults(result, netsToRoute);
+			console.log(`[TIMING] applyResults: ${Date.now() - t_apply0}ms`);
+		tracksCreated = applied.tracksCreated;
+		viasCreated = applied.viasCreated;
+	} catch (e: any) {
+		sendToIframe('routing-complete', { error: `Apply failed: ${e?.message ?? e}` });
+		currentJobId = null; _G.__kicadBridgeJobId = null;
+		return;
+	}
+
+	console.log("[TIMING] total: " + (Date.now() - t_start) + "ms");
+	currentJobId = null; _G.__kicadBridgeJobId = null;
+	sendToIframe('routing-complete', {
+		stats: {
+			nets_routed: result.stats?.nets_routed ?? 0,
+			tracks_added: tracksCreated,
+			vias_added: viasCreated,
+			time_seconds: result.stats?.time_seconds ?? 0,
+		},
+	});
+
+	} finally {
+		isRoutingInProgress = false; _G.__kicadBridgeRouting = false;
+	}
+});
+
+onIframeMessage('cancel-routing', async () => {
+	if (_G.__kicadBridgeGeneration !== _generation) return;
+	if (currentJobId) {
+		const client = new BridgeClient();
+		try { await client.cancelJob(currentJobId); } catch {}
+		currentJobId = null; _G.__kicadBridgeJobId = null;
+	}
+	isRoutingInProgress = false; _G.__kicadBridgeRouting = false;
+	sendToIframe('routing-complete', { error: 'Cancelled by user' });
+});
+
+onIframeMessage('get-nets', async () => {
+	if (_G.__kicadBridgeGeneration !== _generation) return;
+	try {
+		const netNames: string[] = await eda.pcb_Net.getAllNetsName();
+		const nets: Array<{name: string; isConnected: boolean}> = [];
+		for (const name of netNames) {
+			if (!name || name.startsWith('unconnected-')) continue;
+			const length = await eda.pcb_Net.getNetLength(name);
+			nets.push({ name, isConnected: (length !== undefined && length > 0) });
+		}
+		sendToIframe('nets-list', { nets });
+	} catch (e: any) {
+		sendToIframe('nets-list', { nets: [], error: e?.message ?? String(e) });
+	}
+});
+
+onIframeMessage('get-components', async () => {
+	if (_G.__kicadBridgeGeneration !== _generation) return;
+	try {
+		const result: Array<{designator: string; padCount: number}> = [];
+		const allComps = await eda.pcb_PrimitiveComponent.getAll();
+		for (const comp of allComps) {
+			const compAny = comp as any;
+			const des = compAny.designator ?? compAny.name ?? '';
+			const primId = compAny.primitiveId ?? compAny.id ?? '';
+			let padCount = 0;
+			if (primId) {
+				const pins = await eda.pcb_PrimitiveComponent.getAllPinsByPrimitiveId(primId);
+				if (pins) padCount = pins.length;
+			}
+			if (des) result.push({ designator: des, padCount });
+		}
+		sendToIframe('components-list', { components: result });
+	} catch (e: any) {
+		sendToIframe('components-list', { components: [], error: e?.message ?? String(e) });
+	}
+});
+
+onIframeMessage('get-layers', async () => {
+	if (_G.__kicadBridgeGeneration !== _generation) return;
+	try {
+		const layers = await collectLayers();
+		sendToIframe('layers-list', { layers });
+	} catch (e: any) {
+		sendToIframe('layers-list', { layers: [], error: e?.message ?? String(e) });
+	}
+});
+
+onIframeMessage('get-drc-limits', async () => {
+	if (_G.__kicadBridgeGeneration !== _generation) return;
+	try {
+		const drcApi = (eda as any).pcb_Drc ?? (eda as any).PCB_Drc;
+		if (!drcApi || typeof drcApi.getCurrentRuleConfiguration !== 'function') {
+			sendToIframe('drc-limits', {});
+			return;
+		}
+		const drcData = await drcApi.getCurrentRuleConfiguration();
+		const cfg = drcData?.config;
+		if (!cfg) {
+			sendToIframe('drc-limits', {});
+			return;
+		}
+
+		const drcToMm = (value: number, unit: string | undefined): number => {
+			if (!unit || unit === 'mm') return value;
+			if (unit === 'mil') return value * 0.0254;
+			if (unit === 'inch' || unit === 'in') return value * 25.4;
+			return value;
+		};
+
+		const trackSection = cfg.Physics?.Track?.copperThickness1oz;
+		const trackUnit: string | undefined = trackSection?.unit;
+		const trackData = trackSection?.form?.data?.['1'];
+		const minTrackWidth = drcToMm(trackData?.minValue ?? 0, trackUnit);
+
+		const viaSection = cfg.Physics?.['Via Size']?.viaSize;
+		const viaUnit: string | undefined = viaSection?.unit;
+		const viaData = viaSection?.form;
+		const minViaOuter = drcToMm(viaData?.viaOuterdiameterMin ?? 0, viaUnit);
+		const minViaDrill = drcToMm(viaData?.viaInnerdiameterMin ?? 0, viaUnit);
+
+		const spacingSection = cfg.Spacing?.['Safe Spacing']?.copperThickness1oz;
+		const spacingUnit: string | undefined = spacingSection?.unit;
+		const spacingTable = spacingSection?.tables?.['1']?.content;
+
+		let minClearance = 0;
+		if (Array.isArray(spacingTable) && spacingTable.length > 0) {
+			minClearance = drcToMm(spacingTable[0]?.[0] ?? 0, spacingUnit);
+		}
+
+		let minEdgeClearance = 0;
+		if (Array.isArray(spacingTable) && spacingTable.length > 11) {
+			const boardOutlineRow = spacingTable[11];
+			minEdgeClearance = drcToMm(Array.isArray(boardOutlineRow) ? boardOutlineRow[0] : 0, spacingUnit);
+		}
+
+		sendToIframe('drc-limits', {
+			minTrackWidth,
+			minViaOuter,
+			minViaDrill,
+			minClearance,
+			minEdgeClearance,
+		});
+	} catch (e: any) {
+		console.log('[KicadBridge] get-drc-limits error:', e?.message ?? e);
+		sendToIframe('drc-limits', {});
+	}
+});
+
+
+// ─── Menu Functions ───
+
+const IFRAME_ID = 'kicad-routing-dialog';
+
+export async function autoRouteAll(): Promise<void> {
+	const client = new BridgeClient();
+	const serverOk = await client.checkServer();
+	if (!serverOk) {
+		eda.sys_Dialog.showInformationMessage(
+			`Bridge server is not running.\n\nPlease start:\ncd bridge_server && python server.py`,
+			t('KiCad Routing Bridge'),
+		);
+		return;
+	}
+
+	try {
+		await eda.sys_IFrame.openIFrame('/iframe/index.html', 860, 600, IFRAME_ID, {
+			maximizeButton: true,
+			minimizeButton: true,
+			grayscaleMask: true,
+		});
+	} catch (e: any) {
+		eda.sys_Dialog.showInformationMessage(
+			`Failed to open dialog: ${e?.message ?? e}`,
+			t('KiCad Routing Bridge'),
+		);
+	}
+}
+
+export function about(): void {
+	eda.sys_Dialog.showInformationMessage(
+		`${t('KiCad Routing Bridge')} v1.0.0\n\n` +
+		'Bridge extension for EasyEDA Pro to use KiCadRouting Tools.\n' +
+		'Single-ended auto-routing with Rust-accelerated A* pathfinding.\n\n' +
+		`Bridge server: http://${BRIDGE_CONFIG.host}:${BRIDGE_CONFIG.port}`,
+		t('About'),
+	);
+}

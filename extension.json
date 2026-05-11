@@ -1,0 +1,48 @@
+{
+	"name": "kirouting-integration",
+	"uuid": "k1c4d2r0u7t1n9g3b5r8i0d4g6e2p2v2",
+	"displayName": "KiRouting自动布线",
+	"description": "通过本地桥接服务器调用 KiCadRoutingTools 实现 PCB 自动布线，支持单端布线、差分对、BGA扇出等高级功能",
+	"version": "1.0.0",
+	"publisher": "EasyEDA",
+	"engines": {
+		"eda": "^3.2.0"
+	},
+	"license": "Apache-2.0",
+	"repository": {
+		"type": "extension-store",
+		"url": "https://github.com/easyeda/eext-kirouting-integration"
+	},
+	"categories": "PCB",
+	"keywords": ["Autoroute", "PCB", "Routing"],
+	"images": {
+		"logo": "./images/logo.png"
+	},
+	"homepage": "https://github.com/easyeda/eext-kirouting-integration",
+	"bugs": "https://github.com/easyeda/eext-kirouting-integration/issues",
+	"activationEvents": {
+		"onEditorPcb": true
+	},
+	"entry": "./dist/index",
+	"dependentExtensions": {},
+	"headerMenus": {
+		"pcb": [
+			{
+				"id": "KiCadRoutingBridge",
+				"title": "KiRouting自动布线",
+				"menuItems": [
+					{
+						"id": "OpenRouter",
+						"title": "打开布线工具...",
+						"registerFn": "autoRouteAll"
+					},
+					{
+						"id": "About",
+						"title": "关于...",
+						"registerFn": "about"
+					}
+				]
+			}
+		]
+	}
+}
