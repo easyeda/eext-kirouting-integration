@@ -1,0 +1,6 @@
+node_modules/
+__pycache__/
+*.pyc
+bridge_server/debug_output/
+build/dist/
+.claude/
