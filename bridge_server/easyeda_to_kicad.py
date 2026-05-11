@@ -367,7 +367,7 @@ def convert(pcb_data: PCBJsonData) -> str:
 
     parts = []
 
-    parts.append('(kicad_pcb\n\t(version 20241229)\n\t(generator "kicad-routing-bridge")\n\t(generator_version "1.0.0")')
+    parts.append('(kicad_pcb\n\t(version 20241229)\n\t(generator "kirouting-integration")\n\t(generator_version "1.0.0")')
 
     parts.append(_build_layer_section(layer_ids))
 

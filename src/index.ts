@@ -1,7 +1,7 @@
 const uuid = 'k1c4d2r0u7t1n9g3b5r8i0d4g6e2p2v2';
 const _G = globalThis as any;
 const _bridgeInitDone = !!_G.__kicadBridgeLoaded;
-const MSG_PREFIX = 'kicad-routing-bridge.';
+const MSG_PREFIX = 'kirouting-integration.';
 
 const BRIDGE_CONFIG = {
 	port: 8765,

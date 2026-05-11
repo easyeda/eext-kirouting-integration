@@ -22,7 +22,7 @@ cd bridge_server && python server.py
 # or: bridge_server/start_server.bat
 ```
 
-The final artifact is `kicad-routing-bridge_v{version}.eext` — a ZIP containing `dist/`, `locales/`, `iframe/`, `images/`, and `extension.json`.
+The final artifact is `kirouting-integration_v{version}.eext` — a ZIP containing `dist/`, `locales/`, `iframe/`, `images/`, and `extension.json`.
 
 ## Architecture
 

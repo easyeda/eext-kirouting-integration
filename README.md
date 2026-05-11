@@ -33,7 +33,7 @@ KICAD Routing-intergration/
 │   ├── route_planes.py             # 电源/地平面 CLI
 │   ├── rust_router/                # Rust A* 实现
 │   └── ...
-├── kicad-routing-bridge/           # EasyEDA Pro 扩展 + 桥接服务器
+├── kirouting-integration/           # EasyEDA Pro 扩展 + 桥接服务器
 │   ├── src/index.ts                # 扩展入口（TypeScript）
 │   ├── iframe/                     # 扩展 UI（参数配置对话框）
 │   ├── bridge_server/              # Python 桥接服务器
@@ -84,7 +84,7 @@ cd ..
 ### 第三步：安装桥接服务器依赖
 
 ```bash
-cd kicad-routing-bridge/bridge_server
+cd kirouting-integration/bridge_server
 pip install -r requirements.txt
 cd ../..
 ```
@@ -94,7 +94,7 @@ cd ../..
 ### 第四步：安装扩展前端依赖并编译
 
 ```bash
-cd kicad-routing-bridge
+cd kirouting-integration
 npm install
 npm run compile
 cd ..
@@ -103,12 +103,12 @@ cd ..
 ### 第五步：打包扩展（.eext 文件）
 
 ```bash
-cd kicad-routing-bridge
+cd kirouting-integration
 npm run build
 cd ..
 ```
 
-生成文件：`kicad-routing-bridge_v1.2.0.eext`（ZIP 格式，包含 dist/、locales/、iframe/、images/、extension.json）。
+生成文件：`kirouting-integration_v1.2.0.eext`（ZIP 格式，包含 dist/、locales/、iframe/、images/、extension.json）。
 
 ### 第六步：安装扩展到 EasyEDA Pro
 
@@ -120,7 +120,7 @@ cd ..
 ### 第七步：启动桥接服务器
 
 ```bash
-cd kicad-routing-bridge/bridge_server
+cd kirouting-integration/bridge_server
 python server.py
 ```
 
@@ -194,13 +194,13 @@ python server.py
 
 ```bash
 # === 扩展开发 ===
-cd kicad-routing-bridge
+cd kirouting-integration
 npm run compile              # 编译 TypeScript
 npm run build                # 编译 + 打包 .eext
 npm run fix                  # 代码格式化 + lint
 
 # === 桥接服务器 ===
-cd kicad-routing-bridge/bridge_server
+cd kirouting-integration/bridge_server
 python server.py             # 启动服务器
 
 # === 布线引擎 ===
@@ -226,11 +226,11 @@ python check_connected.py output.kicad_pcb         # 连通性检查
 桥接服务器可打包为单文件 EXE，方便分发：
 
 ```bash
-cd kicad-routing-bridge/bridge_server
+cd kirouting-integration/bridge_server
 build_exe.bat
 ```
 
-生成 `dist/kicad-routing-bridge.exe`，运行即启动服务器，无需 Python 环境。
+生成 `dist/kirouting-integration.exe`，运行即启动服务器，无需 Python 环境。
 
 ## 注意事项
 
@@ -242,4 +242,4 @@ build_exe.bat
 ## 许可证
 
 - KiCadRoutingTools: MIT License
-- kicad-routing-bridge: Apache-2.0 License
+- kirouting-integration: Apache-2.0 License

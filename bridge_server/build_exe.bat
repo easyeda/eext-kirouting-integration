@@ -17,7 +17,7 @@ echo Building executable...
 echo.
 
 pyinstaller --onefile ^
-    --name kicad-routing-bridge ^
+    --name kirouting-integration ^
     --add-data "requirements.txt;." ^
     --hidden-import=uvicorn.logging ^
     --hidden-import=uvicorn.loops ^
@@ -37,10 +37,10 @@ pyinstaller --onefile ^
     server.py
 
 echo.
-if exist "dist\kicad-routing-bridge.exe" (
-    echo SUCCESS: dist\kicad-routing-bridge.exe created
+if exist "dist\kirouting-integration.exe" (
+    echo SUCCESS: dist\kirouting-integration.exe created
     echo.
-    echo To run: dist\kicad-routing-bridge.exe
+    echo To run: dist\kirouting-integration.exe
 ) else (
     echo FAILED: Check the build output above for errors
 )

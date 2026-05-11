@@ -2,7 +2,7 @@
   'use strict';
 
   var eda = window.eda;
-  var MSG_PREFIX = 'kicad-routing-bridge.';
+  var MSG_PREFIX = 'kirouting-integration.';
   var MM_TO_MIL = 1.0 / 0.0254;
 
   // State
@@ -288,7 +288,7 @@
 
   function saveSettings() {
     try {
-      localStorage.setItem('kicad-routing-bridge-settings', JSON.stringify({
+      localStorage.setItem('kirouting-integration-settings', JSON.stringify({
         selectedNets: Object.keys(selectedNets),
         track_width: _val('track-width'),
         clearance: _val('clearance'),
@@ -306,7 +306,7 @@
 
   function loadSettings() {
     try {
-      var raw = localStorage.getItem('kicad-routing-bridge-settings');
+      var raw = localStorage.getItem('kirouting-integration-settings');
       if (!raw) return;
       var s = JSON.parse(raw);
       if (s.selectedNets) s.selectedNets.forEach(function(n) { selectedNets[n] = true; });
