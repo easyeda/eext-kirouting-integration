@@ -7,7 +7,7 @@
 	"About": "About",
 	"KiCad Routing Bridge": "KiCad Routing Bridge",
 	"Version": "Version",
-	"Bridge server is not running": "Bridge server is not running. Please start the bridge server first.",
+	"Bridge server is not running": "Bridge server is not running. Please download and start the server.",
 	"Please start bridge server": "Please start the bridge server at localhost:8765 before using this extension.",
 	"Collecting PCB data...": "Collecting PCB data...",
 	"Sending to routing engine...": "Sending to routing engine...",

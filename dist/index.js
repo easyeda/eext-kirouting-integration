@@ -27,7 +27,7 @@ var edaEsbuildExportName = (() => {
   var uuid = "k1c4d2r0u7t1n9g3b5r8i0d4g6e2p2v2";
   var _G = globalThis;
   var _bridgeInitDone = !!_G.__kicadBridgeLoaded;
-  var MSG_PREFIX = "kicad-routing-bridge.";
+  var MSG_PREFIX = "kirouting-integration.";
   var BRIDGE_CONFIG = {
     port: 8765,
     host: "localhost",
@@ -894,19 +894,22 @@ var edaEsbuildExportName = (() => {
     }
   });
   var IFRAME_ID = "kicad-routing-dialog";
-  async function autoRouteAll() {
-    const client = new BridgeClient();
-    const serverOk = await client.checkServer();
-    if (!serverOk) {
+  var SERVICE_DIALOG_ID = "kirouting-service-not-found";
+  function showServiceNotFoundDialog() {
+    try {
+      eda.sys_IFrame.openIFrame("/iframe/service-not-found.html", 520, 420, SERVICE_DIALOG_ID, {
+        maximizeButton: false,
+        minimizeButton: false,
+        grayscaleMask: true
+      });
+    } catch (e) {
       eda.sys_Dialog.showInformationMessage(
-        `Bridge server is not running.
-
-Please start:
-cd bridge_server && python server.py`,
+        t("Bridge server is not running"),
         t("KiCad Routing Bridge")
       );
-      return;
     }
+  }
+  async function openRoutingDialog() {
     try {
       await eda.sys_IFrame.openIFrame("/iframe/index.html", 860, 600, IFRAME_ID, {
         maximizeButton: true,
@@ -920,6 +923,30 @@ cd bridge_server && python server.py`,
       );
     }
   }
+  async function autoRouteAll() {
+    const client = new BridgeClient();
+    const serverOk = await client.checkServer();
+    if (!serverOk) {
+      showServiceNotFoundDialog();
+      return;
+    }
+    await openRoutingDialog();
+  }
+  onIframeMessage("retry-connection", async () => {
+    if (_G.__kicadBridgeGeneration !== _generation) return;
+    const client = new BridgeClient();
+    const serverOk = await client.checkServer();
+    if (serverOk) {
+      sendToIframe("retry-result", { success: true });
+      try {
+        eda.sys_IFrame.closeIFrame(SERVICE_DIALOG_ID);
+      } catch {
+      }
+      await openRoutingDialog();
+    } else {
+      sendToIframe("retry-result", { success: false });
+    }
+  });
   function about() {
     eda.sys_Dialog.showInformationMessage(
       `${t("KiCad Routing Bridge")} v1.0.0

@@ -7,7 +7,7 @@
 	"About": "关于",
 	"KiCad Routing Bridge": "KiCad 自动布线桥接",
 	"Version": "版本",
-	"Bridge server is not running": "桥接服务器未运行，请先启动桥接服务器。",
+	"Bridge server is not running": "桥接服务器未运行，请下载并启动服务器。",
 	"Please start bridge server": "请先在 localhost:8765 启动桥接服务器后再使用本扩展。",
 	"Collecting PCB data...": "正在收集 PCB 数据...",
 	"Sending to routing engine...": "正在发送到布线引擎...",

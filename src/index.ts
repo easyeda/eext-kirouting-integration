@@ -924,18 +924,24 @@ onIframeMessage('get-drc-limits', async () => {
 // ─── Menu Functions ───
 
 const IFRAME_ID = 'kicad-routing-dialog';
+const SERVICE_DIALOG_ID = 'kirouting-service-not-found';
 
-export async function autoRouteAll(): Promise<void> {
-	const client = new BridgeClient();
-	const serverOk = await client.checkServer();
-	if (!serverOk) {
+function showServiceNotFoundDialog(): void {
+	try {
+		eda.sys_IFrame.openIFrame('/iframe/service-not-found.html', 520, 420, SERVICE_DIALOG_ID, {
+			maximizeButton: false,
+			minimizeButton: false,
+			grayscaleMask: true,
+		});
+	} catch (e: any) {
 		eda.sys_Dialog.showInformationMessage(
-			`Bridge server is not running.\n\nPlease start:\ncd bridge_server && python server.py`,
+			t('Bridge server is not running'),
 			t('KiCad Routing Bridge'),
 		);
-		return;
 	}
+}
 
+async function openRoutingDialog(): Promise<void> {
 	try {
 		await eda.sys_IFrame.openIFrame('/iframe/index.html', 860, 600, IFRAME_ID, {
 			maximizeButton: true,
@@ -949,6 +955,29 @@ export async function autoRouteAll(): Promise<void> {
 		);
 	}
 }
+
+export async function autoRouteAll(): Promise<void> {
+	const client = new BridgeClient();
+	const serverOk = await client.checkServer();
+	if (!serverOk) {
+		showServiceNotFoundDialog();
+		return;
+	}
+	await openRoutingDialog();
+}
+
+onIframeMessage('retry-connection', async () => {
+	if (_G.__kicadBridgeGeneration !== _generation) return;
+	const client = new BridgeClient();
+	const serverOk = await client.checkServer();
+	if (serverOk) {
+		sendToIframe('retry-result', { success: true });
+		try { eda.sys_IFrame.closeIFrame(SERVICE_DIALOG_ID); } catch {}
+		await openRoutingDialog();
+	} else {
+		sendToIframe('retry-result', { success: false });
+	}
+});
 
 export function about(): void {
 	eda.sys_Dialog.showInformationMessage(

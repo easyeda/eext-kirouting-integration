@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>KiRouting Bridge Server</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: "Segoe UI", "Microsoft Sans Serif", Tahoma, sans-serif;
+  font-size: 12px; color: #000; background: #f0f0f0;
+}
+.dialog {
+  display: flex; flex-direction: column;
+  height: 100vh; padding: 24px;
+  align-items: center; justify-content: center;
+}
+.icon {
+  font-size: 48px; margin-bottom: 16px;
+  color: #d4760a;
+}
+h2 {
+  font-size: 14px; font-weight: 700;
+  margin-bottom: 8px; text-align: center;
+}
+.desc {
+  font-size: 12px; color: #444;
+  margin-bottom: 20px; text-align: center;
+  line-height: 1.6;
+}
+.steps {
+  width: 100%; max-width: 380px;
+  background: #fff; border: 1px solid #ccc;
+  border-radius: 4px; padding: 16px;
+  margin-bottom: 20px;
+}
+.step {
+  display: flex; align-items: flex-start;
+  margin-bottom: 12px;
+}
+.step:last-child { margin-bottom: 0; }
+.step-num {
+  width: 22px; height: 22px;
+  background: #0078d4; color: #fff;
+  border-radius: 50%; display: flex;
+  align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  flex-shrink: 0; margin-right: 10px; margin-top: 1px;
+}
+.step-text {
+  font-size: 12px; line-height: 1.5;
+  color: #222;
+}
+.step-text a {
+  color: #0078d4; text-decoration: none;
+}
+.step-text a:hover { text-decoration: underline; }
+.buttons {
+  display: flex; gap: 10px;
+  justify-content: center; flex-wrap: wrap;
+}
+button {
+  padding: 6px 16px; font-size: 12px;
+  border: 1px solid #ababab; border-radius: 3px;
+  background: #e1e1e1; color: #000;
+  cursor: pointer; min-width: 100px;
+}
+button:hover { background: #d0d0d0; }
+button.primary {
+  background: #0078d4; color: #fff;
+  border-color: #0078d4;
+}
+button.primary:hover { background: #006cbd; }
+.status {
+  margin-top: 12px; font-size: 11px;
+  color: #666; text-align: center;
+  min-height: 16px;
+}
+.status.error { color: #c42b1c; }
+.status.success { color: #0f7b0f; }
+</style>
+</head>
+<body>
+<div class="dialog">
+  <div class="icon">&#9888;</div>
+  <h2 id="title"></h2>
+  <p class="desc" id="desc"></p>
+  <div class="steps">
+    <div class="step">
+      <span class="step-num">1</span>
+      <span class="step-text" id="step1"></span>
+    </div>
+    <div class="step">
+      <span class="step-num">2</span>
+      <span class="step-text" id="step2"></span>
+    </div>
+    <div class="step">
+      <span class="step-num">3</span>
+      <span class="step-text" id="step3"></span>
+    </div>
+  </div>
+  <div class="buttons">
+    <button id="btn-download" class="primary" onclick="openDownload()"></button>
+    <button id="btn-retry" onclick="retry()"></button>
+  </div>
+  <div class="status" id="status"></div>
+</div>
+<script>
+var MSG_PREFIX = 'kirouting-integration.';
+var RELEASE_URL = 'https://github.com/easyeda/eext-kirouting-integration';
+
+var isCN = /^zh/i.test(navigator.language || '');
+
+var i18n = {
+  title:    isCN ? '桥接服务器未运行' : 'Bridge Server Not Running',
+  desc:     isCN ? 'KiRouting 桥接服务器未在 localhost:8765 上运行。\n请按以下步骤启动：'
+                 : 'The KiRouting bridge server is not running on localhost:8765.\nPlease follow these steps:',
+  step1:    isCN ? '从 <a href="#" onclick="openDownload();return false">GitHub</a> 下载 bridge_server 文件夹'
+                 : 'Download the bridge_server folder from <a href="#" onclick="openDownload();return false">GitHub</a>',
+  step2:    isCN ? '双击运行 <b>bridge_server/start_server.bat</b>（自动安装全部依赖）'
+                 : 'Run <b>bridge_server/start_server.bat</b> (auto-installs all dependencies)',
+  step3:    isCN ? '点击下方"重试"按钮重新连接'
+                 : 'Click "Retry" below to reconnect',
+  download: isCN ? '打开项目页面' : 'Open Project Page',
+  retry:    isCN ? '重试' : 'Retry',
+  checking: isCN ? '正在检测连接...' : 'Checking connection...',
+  failed:   isCN ? '仍无法连接，请确认服务器已启动' : 'Still cannot connect. Please ensure the server is running.',
+  success:  isCN ? '连接成功！正在打开布线工具...' : 'Connected! Opening routing tool...',
+};
+
+document.getElementById('title').textContent = i18n.title;
+document.getElementById('desc').textContent = i18n.desc;
+document.getElementById('step1').innerHTML = i18n.step1;
+document.getElementById('step2').innerHTML = i18n.step2;
+document.getElementById('step3').innerHTML = i18n.step3;
+document.getElementById('btn-download').textContent = i18n.download;
+document.getElementById('btn-retry').textContent = i18n.retry;
+
+function publish(topic, data) {
+  var fullTopic = MSG_PREFIX + topic;
+  var payload = JSON.stringify(data || {});
+  if (window.eda && eda.sys_MessageBus) {
+    if (typeof eda.sys_MessageBus.publish === 'function') {
+      eda.sys_MessageBus.publish(fullTopic, payload);
+    } else if (typeof eda.sys_MessageBus.push === 'function') {
+      eda.sys_MessageBus.push(fullTopic, payload);
+    }
+  }
+}
+
+function openDownload() {
+  if (window.eda && eda.sys_Util && eda.sys_Util.openUrl) {
+    eda.sys_Util.openUrl(RELEASE_URL);
+  } else {
+    window.open(RELEASE_URL, '_blank');
+  }
+}
+
+function retry() {
+  var statusEl = document.getElementById('status');
+  statusEl.className = 'status';
+  statusEl.textContent = i18n.checking;
+  publish('retry-connection', {});
+}
+
+function subscribe(topic, handler) {
+  var fullTopic = MSG_PREFIX + topic;
+  if (window.eda && eda.sys_MessageBus && eda.sys_MessageBus.subscribe) {
+    eda.sys_MessageBus.subscribe(fullTopic, function(msg) {
+      try {
+        handler(typeof msg === 'string' ? JSON.parse(msg) : msg);
+      } catch(e) {}
+    });
+  }
+}
+
+subscribe('retry-result', function(data) {
+  var statusEl = document.getElementById('status');
+  if (data && data.success) {
+    statusEl.className = 'status success';
+    statusEl.textContent = i18n.success;
+  } else {
+    statusEl.className = 'status error';
+    statusEl.textContent = i18n.failed;
+  }
+});
+</script>
+</body>
+</html>

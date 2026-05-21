@@ -1,6 +1,13 @@
-# KiCad Routing Integration
+# KiRouting Integration
 
 将 **KiCadRouting Tools**（Rust 加速 A* 自动布线引擎）桥接到 **嘉立创EDA专业版（EasyEDA Pro）** 的完整解决方案。
+
+## 项目地址
+
+| 项目 | 地址 | 说明 |
+|------|------|------|
+| 本项目（扩展 + 桥接服务器） | https://github.com/easyeda/eext-kirouting-integration | EasyEDA Pro 扩展及 Python 桥接服务器 |
+| KiCadRouting Tools（布线引擎） | https://github.com/drandyhaas/KiCadRoutingTools/tree/main#command-line-interface | Rust 加速 A* 路由器（原项目） |
 
 ## 系统架构
 
@@ -11,8 +18,8 @@
 │                     │                              │                      │
 │  ┌───────────────┐  │                              │  ┌────────────────┐  │
 │  │ TypeScript 扩展│  │  ← 收集PCB数据 / 写回结果 →   │  │ 格式转换        │  │
-│  │ (kicad-routing │  │                              │  │ EasyEDA ↔ KiCad│  │
-│  │  -bridge)     │  │                              │  └───────┬────────┘  │
+│  │ (kirouting-   │  │                              │  │ EasyEDA ↔ KiCad│  │
+│  │  integration) │  │                              │  └───────┬────────┘  │
 │  └───────────────┘  │                              │          │           │
 └─────────────────────┘                              │          ▼           │
                                                      │  ┌────────────────┐  │
@@ -23,120 +30,59 @@
                                                      └──────────────────────┘
 ```
 
-## 目录结构
+## 快速开始（用户安装）
 
-```
-KICAD Routing-intergration/
-├── KiCadRoutingTools/              # 布线引擎（Rust加速A*路由器）
-│   ├── route.py                    # 单端布线 CLI
-│   ├── route_diff.py               # 差分对布线 CLI
-│   ├── route_planes.py             # 电源/地平面 CLI
-│   ├── rust_router/                # Rust A* 实现
-│   └── ...
-├── kirouting-integration/           # EasyEDA Pro 扩展 + 桥接服务器
-│   ├── src/index.ts                # 扩展入口（TypeScript）
-│   ├── iframe/                     # 扩展 UI（参数配置对话框）
-│   ├── bridge_server/              # Python 桥接服务器
-│   │   ├── server.py               # FastAPI 服务（端口 8765）
-│   │   ├── routing_runner.py       # 布线调度（调用 KiCadRoutingTools）
-│   │   ├── easyeda_to_kicad.py     # EasyEDA JSON → KiCad 格式转换
-│   │   ├── kicad_diff.py           # 对比输入/输出提取新走线
-│   │   ├── coord_transform.py      # 坐标系转换（mil ↔ mm）
-│   │   ├── layer_mapping.py        # 层映射（EasyEDA ↔ KiCad）
-│   │   ├── models.py               # Pydantic 数据模型
-│   │   ├── analysis.py             # AI 分析（电源网络、差分对等）
-│   │   └── requirements.txt        # Python 依赖
-│   ├── extension.json              # 扩展清单
-│   ├── package.json                # Node.js 项目配置
-│   └── tsconfig.json               # TypeScript 配置
-└── README.md                       # 本文件
-```
+只需两步即可使用：
 
-## 环境要求
+### 第一步：安装扩展
 
-| 组件 | 版本要求 |
-|------|---------|
-| Python | 3.7+ |
-| Node.js | 20.5.0+ |
-| Rust | stable（用于编译路由器） |
-| EasyEDA Pro | 2.3.0+ |
-| npm | 随 Node.js 安装 |
+在 EasyEDA Pro（嘉立创EDA专业版）的 **扩展广场** 中搜索 **KiRouting Integration** 并安装。
 
-## 完整安装与操作流程
+也可以手动安装：从 [GitHub Releases](https://github.com/easyeda/eext-kirouting-integration/releases/latest) 下载 `.eext` 文件，在 **扩展** → **扩展管理器** → **从本地安装** 中导入。
 
-### 第一步：克隆仓库
+### 第二步：获取启动脚本
+
+从本项目仓库获取桥接服务器：
 
 ```bash
-git clone <repository-url>
-cd "KICAD Routing-intergration"
+git clone https://github.com/easyeda/eext-kirouting-integration.git
 ```
 
-### 第二步：编译 Rust 布线引擎
+或直接在 [项目页面](https://github.com/easyeda/eext-kirouting-integration) 点击 **Code** → **Download ZIP** 下载并解压。
 
-```bash
-cd KiCadRoutingTools
-python build_router.py
-cd ..
-```
+启动脚本位于项目目录中的 `bridge_server/start_server.bat`。
 
-> 注意：不要直接运行 `cargo build`，必须通过 `build_router.py` 构建，它会处理库文件复制和版本校验。
+### 第三步：启动桥接服务器
 
-### 第三步：安装桥接服务器依赖
+双击运行 `bridge_server/start_server.bat`，脚本会自动完成以下操作：
 
-```bash
-cd kirouting-integration/bridge_server
-pip install -r requirements.txt
-cd ../..
-```
+1. 检测 Python 环境，未安装则自动通过 winget 安装
+2. 检测并安装 Python 依赖（fastapi、uvicorn、pydantic、numpy）
+3. 检测 KiCadRoutingTools，不存在则自动从 GitHub 克隆
+4. 检测 Rust 路由器编译产物，未编译则自动构建（无 Rust 环境时降级为纯 Python 模式）
+5. 启动桥接服务器（监听 `http://localhost:8765`）
 
-依赖包括：fastapi、uvicorn、pydantic、numpy。
+> 首次运行需要联网下载依赖，后续启动会跳过已完成的步骤。
 
-### 第四步：安装扩展前端依赖并编译
-
-```bash
-cd kirouting-integration
-npm install
-npm run compile
-cd ..
-```
-
-### 第五步：打包扩展（.eext 文件）
-
-```bash
-cd kirouting-integration
-npm run build
-cd ..
-```
-
-生成文件：`kirouting-integration_v1.2.0.eext`（ZIP 格式，包含 dist/、locales/、iframe/、images/、extension.json）。
-
-### 第六步：安装扩展到 EasyEDA Pro
-
-1. 打开 EasyEDA Pro（嘉立创EDA专业版）
-2. 进入 **扩展** → **扩展管理器**
-3. 选择 **从本地安装**，选中生成的 `.eext` 文件
-4. 重启 EasyEDA Pro
-
-### 第七步：启动桥接服务器
-
-```bash
-cd kirouting-integration/bridge_server
-python server.py
-```
-
-或者双击 `start_server.bat`（Windows，会自动检测并安装依赖）。
-
-服务器启动后监听 `http://localhost:8765`。
-
-### 第八步：在 EasyEDA Pro 中使用
+### 第四步：开始使用
 
 1. 打开一个 PCB 文件
-2. 顶部菜单栏点击 **KiCad 布线** → **打开布线工具...**
-3. 在弹出的对话框中：
-   - 选择要布线的网络
-   - 配置布线参数（线宽、间距、过孔大小、层选择等）
-   - 点击 **开始布线**
+2. 顶部菜单栏点击 **KiRouting自动布线** → **打开布线工具...**
+3. 在弹出的对话框中选择网络、配置参数、点击 **开始布线**
 4. 等待布线完成，结果自动写回 PCB
+
+> 如果服务器未启动，扩展会弹出引导对话框，提供下载链接和操作说明。
+
+## 布线功能
+
+- **单端布线** — A* 寻路，支持 MPS 网络排序、拆线重布、总线检测
+- **差分对布线** — 中心线 + 偏移，自动极性交换，GND 过孔放置
+- **电源平面** — 自动过孔连接 SMD 焊盘到内层铜皮，Voronoi 分区
+- **BGA 扇出** — 自动逃逸路径生成
+- **QFN 扇出** — QFN/QFP 焊盘延伸
+- **长度匹配** — DDR4 字节通道自动分组，蛇形走线
+- **阻抗控制** — 根据叠层自动计算每层线宽
+- **目标交换优化** — 匈牙利算法最小化交叉
 
 ## 布线工作流程（数据流）
 
@@ -179,36 +125,67 @@ python server.py
 | POST | `/api/analyze/bus-groups` | 总线组检测 |
 | POST | `/api/analyze/net-stats` | 网络统计 |
 
-## 布线功能
+## 开发者指南
 
-- **单端布线** — A* 寻路，支持 MPS 网络排序、拆线重布、总线检测
-- **差分对布线** — 中心线 + 偏移，自动极性交换，GND 过孔放置
-- **电源平面** — 自动过孔连接 SMD 焊盘到内层铜皮，Voronoi 分区
-- **BGA 扇出** — 自动逃逸路径生成
-- **QFN 扇出** — QFN/QFP 焊盘延伸
-- **长度匹配** — DDR4 字节通道自动分组，蛇形走线
-- **阻抗控制** — 根据叠层自动计算每层线宽
-- **目标交换优化** — 匈牙利算法最小化交叉
+以下内容面向需要修改源码或从源码构建的开发者。
 
-## 开发命令速查
+### 目录结构
+
+```
+KICAD Routing-intergration/
+├── KiCadRoutingTools/              # 布线引擎（Rust加速A*路由器）
+│   ├── route.py                    # 单端布线 CLI
+│   ├── route_diff.py               # 差分对布线 CLI
+│   ├── route_planes.py             # 电源/地平面 CLI
+│   ├── rust_router/                # Rust A* 实现
+│   └── ...
+├── kirouting-integration/           # EasyEDA Pro 扩展 + 桥接服务器
+│   ├── src/index.ts                # 扩展入口（TypeScript）
+│   ├── iframe/                     # 扩展 UI（参数配置对话框）
+│   ├── bridge_server/              # Python 桥接服务器
+│   │   ├── server.py               # FastAPI 服务（端口 8765）
+│   │   ├── start_server.bat        # 一键启动脚本（自动安装依赖）
+│   │   ├── routing_runner.py       # 布线调度（调用 KiCadRoutingTools）
+│   │   ├── easyeda_to_kicad.py     # EasyEDA JSON → KiCad 格式转换
+│   │   ├── kicad_diff.py           # 对比输入/输出提取新走线
+│   │   ├── coord_transform.py      # 坐标系转换（mil ↔ mm）
+│   │   ├── layer_mapping.py        # 层映射（EasyEDA ↔ KiCad）
+│   │   ├── models.py               # Pydantic 数据模型
+│   │   ├── analysis.py             # AI 分析（电源网络、差分对等）
+│   │   └── requirements.txt        # Python 依赖
+│   ├── extension.json              # 扩展清单
+│   ├── package.json                # Node.js 项目配置
+│   └── tsconfig.json               # TypeScript 配置
+└── README.md                       # 本文件
+```
+
+### 环境要求
+
+| 组件 | 版本要求 | 用途 |
+|------|---------|------|
+| Python | 3.8+ | 桥接服务器 |
+| Node.js | 20.5.0+ | 编译扩展 |
+| Rust | stable | 编译路由器（可选，无则降级为纯 Python） |
+| EasyEDA Pro | 2.3.0+ | 运行扩展 |
+
+### 开发命令
 
 ```bash
 # === 扩展开发 ===
 cd kirouting-integration
+npm install                  # 安装前端依赖
 npm run compile              # 编译 TypeScript
 npm run build                # 编译 + 打包 .eext
 npm run fix                  # 代码格式化 + lint
 
 # === 桥接服务器 ===
 cd kirouting-integration/bridge_server
-python server.py             # 启动服务器
+pip install -r requirements.txt  # 安装 Python 依赖
+python server.py                 # 启动服务器
 
 # === 布线引擎 ===
 cd KiCadRoutingTools
-python build_router.py       # 编译 Rust 路由器
-python route.py input.kicad_pcb                    # 单端布线
-python route_diff.py input.kicad_pcb --nets "*"    # 差分对布线
-python route_planes.py input.kicad_pcb --nets GND --plane-layers B.Cu  # 电源平面
+python build_router.py       # 编译 Rust 路由器（不要直接 cargo build）
 
 # === 测试 ===
 cd KiCadRoutingTools
@@ -220,17 +197,6 @@ cd KiCadRoutingTools
 python check_drc.py output.kicad_pcb               # DRC 检查
 python check_connected.py output.kicad_pcb         # 连通性检查
 ```
-
-## 打包独立可执行文件（可选）
-
-桥接服务器可打包为单文件 EXE，方便分发：
-
-```bash
-cd kirouting-integration/bridge_server
-build_exe.bat
-```
-
-生成 `dist/kirouting-integration.exe`，运行即启动服务器，无需 Python 环境。
 
 ## 注意事项
 
