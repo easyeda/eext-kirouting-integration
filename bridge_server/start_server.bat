@@ -103,7 +103,7 @@ if not exist "!TOOLS_DIR!\route.py" (
         exit /b 1
     )
     echo   Extracting...
-    powershell -Command "Expand-Archive -Path '!ZIP_FILE!' -DestinationPath '%~dp0' -Force"
+    %SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -Command "Expand-Archive -Path '!ZIP_FILE!' -DestinationPath '%~dp0' -Force"
     if errorlevel 1 (
         echo.
         echo ERROR: Failed to extract KiCadRoutingTools.
