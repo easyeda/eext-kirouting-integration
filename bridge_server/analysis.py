@@ -17,7 +17,17 @@ from models import PCBJsonData
 from easyeda_to_kicad import convert
 from layer_mapping import easyeda_layer_to_kicad
 
-KICAD_TOOLS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'KiCadRoutingTools'))
+_kicad_tools_candidates = [
+    os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'KiCadRoutingTools')),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'KiCadRoutingTools')),
+]
+KICAD_TOOLS_DIR = None
+for _c in _kicad_tools_candidates:
+    if os.path.isfile(os.path.join(_c, 'route.py')):
+        KICAD_TOOLS_DIR = _c
+        break
+if KICAD_TOOLS_DIR is None:
+    KICAD_TOOLS_DIR = _kicad_tools_candidates[0]
 if KICAD_TOOLS_DIR not in sys.path:
     sys.path.insert(0, KICAD_TOOLS_DIR)
 if os.path.join(KICAD_TOOLS_DIR, 'rust_router') not in sys.path:

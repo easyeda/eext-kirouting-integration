@@ -155,8 +155,25 @@ async function collectFullPCBData(config: any): Promise<any> {
 					let padHeight = 0;
 					if (Array.isArray(padArr) && padArr.length >= 2) {
 						padShape = (padArr[0] || 'round').toString().toLowerCase();
-						padWidth = padArr[1] || 0;
-						padHeight = padArr.length >= 3 ? (padArr[2] || padWidth) : padWidth;
+						if (typeof padArr[1] === 'number') {
+							padWidth = padArr[1] || 0;
+							padHeight = padArr.length >= 3 && typeof padArr[2] === 'number' ? (padArr[2] || padWidth) : padWidth;
+						} else if (Array.isArray(padArr[1])) {
+							// Polygon pad: extract bounding box from point coordinates
+							const points = padArr[1];
+							let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+							for (let pi = 0; pi < points.length - 1; pi += 2) {
+								const px = typeof points[pi] === 'number' ? points[pi] : 0;
+								const py = typeof points[pi + 1] === 'number' ? points[pi + 1] : 0;
+								if (px < minX) minX = px;
+								if (px > maxX) maxX = px;
+								if (py < minY) minY = py;
+								if (py > maxY) maxY = py;
+							}
+							padWidth = maxX - minX;
+							padHeight = maxY - minY;
+							padShape = 'rect';
+						}
 					}
 					if (!debuggedFirst) {
 						console.log('[KicadBridge] COLLECT pad raw:', JSON.stringify(padArr), 'parsed w:', padWidth, 'h:', padHeight);
@@ -218,8 +235,24 @@ async function collectFullPCBData(config: any): Promise<any> {
 					let padHeight = 0;
 					if (Array.isArray(padArr) && padArr.length >= 2) {
 						padShape = (padArr[0] || 'round').toString().toLowerCase();
-						padWidth = padArr[1] || 0;
-						padHeight = padArr.length >= 3 ? (padArr[2] || padWidth) : padWidth;
+						if (typeof padArr[1] === 'number') {
+							padWidth = padArr[1] || 0;
+							padHeight = padArr.length >= 3 && typeof padArr[2] === 'number' ? (padArr[2] || padWidth) : padWidth;
+						} else if (Array.isArray(padArr[1])) {
+							const points = padArr[1];
+							let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+							for (let pi = 0; pi < points.length - 1; pi += 2) {
+								const px = typeof points[pi] === 'number' ? points[pi] : 0;
+								const py = typeof points[pi + 1] === 'number' ? points[pi + 1] : 0;
+								if (px < minX) minX = px;
+								if (px > maxX) maxX = px;
+								if (py < minY) minY = py;
+								if (py > maxY) maxY = py;
+							}
+							padWidth = maxX - minX;
+							padHeight = maxY - minY;
+							padShape = 'rect';
+						}
 					}
 					let drill = 0;
 					const holeData = spData.hole;

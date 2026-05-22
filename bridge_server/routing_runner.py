@@ -22,7 +22,17 @@ from kicad_diff import extract_new_routes
 from coord_transform import mil_to_mm
 from layer_mapping import easyeda_layer_to_kicad
 
-KICAD_TOOLS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'KiCadRoutingTools'))
+KICAD_TOOLS_DIR = None
+_candidates = [
+    os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'KiCadRoutingTools')),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'KiCadRoutingTools')),
+]
+for _candidate in _candidates:
+    if os.path.isfile(os.path.join(_candidate, 'route.py')):
+        KICAD_TOOLS_DIR = _candidate
+        break
+if KICAD_TOOLS_DIR is None:
+    KICAD_TOOLS_DIR = _candidates[0]
 
 # Add KiCadRoutingTools to path for direct import
 if KICAD_TOOLS_DIR not in sys.path:

@@ -6,7 +6,17 @@ then convert back to EasyEDA coordinate space.
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'KiCadRoutingTools'))
+_kicad_tools_candidates = [
+    os.path.join(os.path.dirname(__file__), '..', 'KiCadRoutingTools'),
+    os.path.join(os.path.dirname(__file__), '..', '..', 'KiCadRoutingTools'),
+]
+for _c in _kicad_tools_candidates:
+    _c = os.path.abspath(_c)
+    if os.path.isfile(os.path.join(_c, 'route.py')):
+        sys.path.insert(0, _c)
+        break
+else:
+    sys.path.insert(0, os.path.abspath(_kicad_tools_candidates[0]))
 
 from kicad_parser import parse_kicad_pcb, Segment, Via
 from coord_transform import mm_to_mil
