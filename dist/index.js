@@ -184,18 +184,22 @@ var edaEsbuildExportName = (() => {
                 padWidth = padArr[1] || 0;
                 padHeight = padArr.length >= 3 && typeof padArr[2] === "number" ? padArr[2] || padWidth : padWidth;
               } else if (Array.isArray(padArr[1])) {
-                const points = padArr[1];
-                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-                for (let pi = 0; pi < points.length - 1; pi += 2) {
-                  const px = typeof points[pi] === "number" ? points[pi] : 0;
-                  const py = typeof points[pi + 1] === "number" ? points[pi + 1] : 0;
-                  if (px < minX) minX = px;
-                  if (px > maxX) maxX = px;
-                  if (py < minY) minY = py;
-                  if (py > maxY) maxY = py;
+                const raw = padArr[1];
+                const nums = [];
+                for (let pi = 0; pi < raw.length; pi++) {
+                  if (typeof raw[pi] === "number") nums.push(raw[pi]);
                 }
-                padWidth = maxX - minX;
-                padHeight = maxY - minY;
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                for (let pi = 0; pi < nums.length - 1; pi += 2) {
+                  if (nums[pi] < minX) minX = nums[pi];
+                  if (nums[pi] > maxX) maxX = nums[pi];
+                  if (nums[pi + 1] < minY) minY = nums[pi + 1];
+                  if (nums[pi + 1] > maxY) maxY = nums[pi + 1];
+                }
+                if (minX !== Infinity) {
+                  padWidth = maxX - minX;
+                  padHeight = maxY - minY;
+                }
                 padShape = "rect";
               }
             }
@@ -260,18 +264,22 @@ var edaEsbuildExportName = (() => {
                 padWidth = padArr[1] || 0;
                 padHeight = padArr.length >= 3 && typeof padArr[2] === "number" ? padArr[2] || padWidth : padWidth;
               } else if (Array.isArray(padArr[1])) {
-                const points = padArr[1];
-                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-                for (let pi = 0; pi < points.length - 1; pi += 2) {
-                  const px = typeof points[pi] === "number" ? points[pi] : 0;
-                  const py = typeof points[pi + 1] === "number" ? points[pi + 1] : 0;
-                  if (px < minX) minX = px;
-                  if (px > maxX) maxX = px;
-                  if (py < minY) minY = py;
-                  if (py > maxY) maxY = py;
+                const raw = padArr[1];
+                const nums = [];
+                for (let pi = 0; pi < raw.length; pi++) {
+                  if (typeof raw[pi] === "number") nums.push(raw[pi]);
                 }
-                padWidth = maxX - minX;
-                padHeight = maxY - minY;
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                for (let pi = 0; pi < nums.length - 1; pi += 2) {
+                  if (nums[pi] < minX) minX = nums[pi];
+                  if (nums[pi] > maxX) maxX = nums[pi];
+                  if (nums[pi + 1] < minY) minY = nums[pi + 1];
+                  if (nums[pi + 1] > maxY) maxY = nums[pi + 1];
+                }
+                if (minX !== Infinity) {
+                  padWidth = maxX - minX;
+                  padHeight = maxY - minY;
+                }
                 padShape = "rect";
               }
             }
