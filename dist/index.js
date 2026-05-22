@@ -757,8 +757,16 @@ var edaEsbuildExportName = (() => {
         console.log(`[KicadBridge] Poll timeout, final status: ${finalStatus}`);
       }
       if (finalStatus !== "completed") {
+        let errorDetail = "";
+        try {
+          const res = await client.getResult(jobId);
+          errorDetail = res?.error || res?.log || "";
+        } catch (_) {
+        }
         const elapsed = Math.round((Date.now() - startTime) / 1e3);
-        sendToIframe("routing-complete", { error: `Routing did not complete (status: ${finalStatus}, waited ${elapsed}s). The board may be too complex.` });
+        const msg = errorDetail ? `Routing failed: ${errorDetail}` : `Routing did not complete (status: ${finalStatus}, waited ${elapsed}s). The board may be too complex.`;
+        console.log(`[KicadBridge] Routing failed: status=${finalStatus}, error=${errorDetail}`);
+        sendToIframe("routing-complete", { error: msg });
         currentJobId = null;
         _G.__kicadBridgeJobId = null;
         return;

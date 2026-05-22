@@ -124,7 +124,13 @@ def _run_direct_api(
     cancel_event: Optional[threading.Event],
 ) -> Tuple[float, str]:
     """Run routing via direct Python API call to batch_route()."""
-    from route import batch_route
+    try:
+        from route import batch_route
+    except SystemExit as e:
+        raise RuntimeError(
+            f"KiCadRoutingTools startup check failed (Rust router not built?). "
+            f"Run 'python build_router.py' in KiCadRoutingTools directory. Exit code: {e.code}"
+        )
 
     # Round all params to clean mm values to avoid precision loss from mm→mil→mm conversion
     track_width_mm = round(mil_to_mm(config.track_width), 4)
@@ -183,7 +189,13 @@ def _run_diff_pair_direct(
     cancel_event: Optional[threading.Event],
 ) -> Tuple[float, str]:
     """Run differential pair routing via direct API call."""
-    from route_diff import batch_route_diff_pairs
+    try:
+        from route_diff import batch_route_diff_pairs
+    except SystemExit as e:
+        raise RuntimeError(
+            f"KiCadRoutingTools startup check failed (Rust router not built?). "
+            f"Run 'python build_router.py' in KiCadRoutingTools directory. Exit code: {e.code}"
+        )
 
     # Round all params to clean mm values to avoid precision loss from mm→mil→mm conversion
     track_width_mm = round(mil_to_mm(config.track_width), 4)

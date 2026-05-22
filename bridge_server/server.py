@@ -99,7 +99,7 @@ def _run_routing_job(job: Job):
         )
         job.status = "completed"
 
-    except Exception as e:
+    except BaseException as e:
         if job.cancelled.is_set():
             job.status = "cancelled"
             job.result = RoutingResult(status="cancelled", error="Cancelled by user")
