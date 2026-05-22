@@ -106,7 +106,136 @@ button.primary:hover { background: #006cbd; }
 </div>
 <script>
 var MSG_PREFIX = 'kirouting-integration.';
-var RELEASE_URL = 'https://github.com/easyeda/eext-kirouting-integration';
+var REPO_BASE = 'https://raw.githubusercontent.com/easyeda/eext-kirouting-integration/main/bridge_server';
+var BAT_CONTENT = [
+'@echo off',
+'chcp 65001 >nul 2>&1',
+'setlocal enabledelayedexpansion',
+'',
+'echo ============================================',
+'echo   KiRouting Bridge Server - One-Click Start',
+'echo ============================================',
+'echo.',
+'',
+'cd /d "%~dp0"',
+'',
+'REM --- Configuration ---',
+'set "REPO_BASE=' + REPO_BASE + '"',
+'',
+'REM --- Step 1: Check Python ---',
+'echo [1/5] Checking Python...',
+'python --version >nul 2>&1',
+'if errorlevel 1 (',
+'    echo Python not found. Attempting to install via winget...',
+'    winget install Python.Python.3.12 --accept-package-agreements --accept-source-agreements',
+'    if errorlevel 1 (',
+'        echo.',
+'        echo ERROR: Failed to install Python automatically.',
+'        echo Please install Python 3.8+ manually from https://www.python.org/downloads/',
+'        echo Make sure to check "Add Python to PATH" during installation.',
+'        echo.',
+'        pause',
+'        exit /b 1',
+'    )',
+'    echo Python installed. You may need to restart this script for PATH to take effect.',
+'    echo.',
+'    pause',
+'    exit /b 0',
+')',
+'for /f "tokens=2" %%v in (\'python --version 2^>^&1\') do echo   Found Python %%v',
+'',
+'REM --- Step 2: Download bridge_server files ---',
+'echo.',
+'echo [2/5] Downloading bridge server files...',
+'',
+'set "FILES=server.py routing_runner.py easyeda_to_kicad.py kicad_diff.py layer_mapping.py models.py coord_transform.py analysis.py verify_precision.py requirements.txt"',
+'',
+'set "DOWNLOAD_OK=1"',
+'for %%f in (%FILES%) do (',
+'    if not exist "%~dp0%%f" (',
+'        echo   Downloading %%f...',
+'        curl -sL "%REPO_BASE%/%%f" -o "%~dp0%%f"',
+'        if errorlevel 1 (',
+'            set "DOWNLOAD_OK=0"',
+'            echo   ERROR: Failed to download %%f',
+'        )',
+'    ) else (',
+'        echo   %%f already exists, skipping',
+'    )',
+')',
+'',
+'if "!DOWNLOAD_OK!"=="0" (',
+'    echo.',
+'    echo ERROR: Some files failed to download. Please check your network connection.',
+'    echo.',
+'    pause',
+'    exit /b 1',
+')',
+'echo   All files OK',
+'',
+'REM --- Step 3: Check pip dependencies ---',
+'echo.',
+'echo [3/5] Checking Python dependencies...',
+'',
+'python -c "import fastapi; import uvicorn; import numpy" 2>nul',
+'if errorlevel 1 (',
+'    echo   Installing dependencies...',
+'    pip install -r "%~dp0requirements.txt"',
+'    if errorlevel 1 (',
+'        echo.',
+'        echo ERROR: Failed to install Python dependencies.',
+'        echo Try running manually: pip install -r requirements.txt',
+'        echo.',
+'        pause',
+'        exit /b 1',
+'    )',
+')',
+'echo   Dependencies OK',
+'',
+'REM --- Step 4: Check KiCadRoutingTools ---',
+'echo.',
+'echo [4/5] Checking KiCadRoutingTools...',
+'',
+'set "TOOLS_DIR=%~dp0KiCadRoutingTools"',
+'if not exist "%TOOLS_DIR%\\route.py" (',
+'    echo   KiCadRoutingTools not found, downloading...',
+'    set "ZIP_FILE=%~dp0KiCadRoutingTools.zip"',
+'    curl -sL "https://github.com/drandyhaas/KiCadRoutingTools/archive/refs/heads/main.zip" -o "!ZIP_FILE!"',
+'    if errorlevel 1 (',
+'        echo.',
+'        echo ERROR: Failed to download KiCadRoutingTools.',
+'        echo Please check your network connection.',
+'        echo.',
+'        pause',
+'        exit /b 1',
+'    )',
+'    echo   Extracting...',
+'    powershell -Command "Expand-Archive -Path \'!ZIP_FILE!\' -DestinationPath \'%~dp0\' -Force"',
+'    if errorlevel 1 (',
+'        echo.',
+'        echo ERROR: Failed to extract KiCadRoutingTools.',
+'        echo.',
+'        pause',
+'        exit /b 1',
+'    )',
+'    ren "%~dp0KiCadRoutingTools-main" KiCadRoutingTools',
+'    del "!ZIP_FILE!"',
+')',
+'echo   KiCadRoutingTools OK',
+'',
+'REM --- Step 5: Start server ---',
+'echo.',
+'echo [5/5] Starting bridge server...',
+'echo.',
+'echo ============================================',
+'echo   Server running at http://localhost:8765',
+'echo   Press Ctrl+C to stop',
+'echo ============================================',
+'echo.',
+'',
+'python "%~dp0server.py"',
+'pause'
+].join('\r\n');
 
 var isCN = /^zh/i.test(navigator.language || '');
 
@@ -114,13 +243,13 @@ var i18n = {
   title:    isCN ? '桥接服务器未运行' : 'Bridge Server Not Running',
   desc:     isCN ? 'KiRouting 桥接服务器未在 localhost:8765 上运行。\n请按以下步骤启动：'
                  : 'The KiRouting bridge server is not running on localhost:8765.\nPlease follow these steps:',
-  step1:    isCN ? '从 <a href="#" onclick="openDownload();return false">GitHub</a> 下载 bridge_server 文件夹'
-                 : 'Download the bridge_server folder from <a href="#" onclick="openDownload();return false">GitHub</a>',
-  step2:    isCN ? '双击运行 <b>bridge_server/start_server.bat</b>（自动安装全部依赖）'
-                 : 'Run <b>bridge_server/start_server.bat</b> (auto-installs all dependencies)',
+  step1:    isCN ? '点击下方按钮 <a href="#" onclick="openDownload();return false">下载启动脚本</a>（start_server.bat）'
+                 : '<a href="#" onclick="openDownload();return false">Download the startup script</a> (start_server.bat)',
+  step2:    isCN ? '双击运行 <b>start_server.bat</b>（自动下载全部文件并安装依赖）'
+                 : 'Double-click <b>start_server.bat</b> (auto-downloads all files and installs dependencies)',
   step3:    isCN ? '点击下方"重试"按钮重新连接'
                  : 'Click "Retry" below to reconnect',
-  download: isCN ? '打开项目页面' : 'Open Project Page',
+  download: isCN ? '下载启动脚本' : 'Download Script',
   retry:    isCN ? '重试' : 'Retry',
   checking: isCN ? '正在检测连接...' : 'Checking connection...',
   failed:   isCN ? '仍无法连接，请确认服务器已启动' : 'Still cannot connect. Please ensure the server is running.',
@@ -148,11 +277,17 @@ function publish(topic, data) {
 }
 
 function openDownload() {
-  if (window.eda && eda.sys_Util && eda.sys_Util.openUrl) {
-    eda.sys_Util.openUrl(RELEASE_URL);
-  } else {
-    window.open(RELEASE_URL, '_blank');
-  }
+  var blob = new Blob([BAT_CONTENT], { type: 'application/x-bat' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'start_server.bat';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  var statusEl = document.getElementById('status');
+  statusEl.className = 'status success';
+  statusEl.textContent = isCN ? '下载完成，请双击运行' : 'Downloaded. Double-click to run.';
 }
 
 function retry() {
