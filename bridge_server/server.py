@@ -4,6 +4,8 @@ EasyEDA Pro extension and KiCadRouting Tools.
 """
 
 import json
+import os
+import sys
 import uuid as uuid_mod
 import traceback
 import threading
@@ -50,19 +52,30 @@ def _run_routing_job(job: Job):
     if not _routing_lock.acquire(timeout=1):
         job.status = "failed"
         job.result = RoutingResult(status="failed", error="Another routing job is already running")
+        print(f"[ERROR] Job {job.job_id}: failed to acquire lock")
         return
     try:
         _active_job_id = job.job_id
         job.status = "converting"
-        from routing_runner import run_routing
+        print(f"[DEBUG] Job {job.job_id}: status=converting, importing routing_runner...")
+        print(f"[DEBUG] Job {job.job_id}: __file__={os.path.abspath(__file__)}")
+        print(f"[DEBUG] Job {job.job_id}: cwd={os.getcwd()}")
+        print(f"[DEBUG] Job {job.job_id}: sys.path[:5]={sys.path[:5]}")
+        from routing_runner import run_routing, KICAD_TOOLS_DIR
+        print(f"[DEBUG] Job {job.job_id}: KICAD_TOOLS_DIR={KICAD_TOOLS_DIR}")
+        print(f"[DEBUG] Job {job.job_id}: route.py exists={os.path.isfile(os.path.join(KICAD_TOOLS_DIR, 'route.py'))}")
 
         if job.cancelled.is_set():
             job.status = "cancelled"
             return
 
         job.status = "routing"
+        print(f"[DEBUG] Job {job.job_id}: status=routing, calling run_routing...")
+        print(f"[DEBUG] Job {job.job_id}: pcb_data components={len(job.pcb_data.components)}, nets={len(job.pcb_data.nets)}")
         new_tracks, new_vias, elapsed, log_output = run_routing(job.pcb_data, job.cancelled)
         job.log = log_output
+        print(f"[DEBUG] Job {job.job_id}: routing done, tracks={len(new_tracks)}, vias={len(new_vias)}, elapsed={elapsed:.1f}s")
+        print(f"[DEBUG] Job {job.job_id}: log_output={log_output[:500]}")
 
         if job.cancelled.is_set():
             job.status = "cancelled"
@@ -91,12 +104,16 @@ def _run_routing_job(job: Job):
             job.status = "cancelled"
             job.result = RoutingResult(status="cancelled", error="Cancelled by user")
         else:
-            job.log += f"\n\nERROR: {traceback.format_exc()}"
+            import traceback
+            error_detail = traceback.format_exc()
+            job.log += f"\n\nERROR: {error_detail}"
             job.result = RoutingResult(
                 status="failed",
                 error=str(e),
             )
             job.status = "failed"
+            print(f"[ERROR] Job {job.job_id}: EXCEPTION: {e}")
+            print(f"[ERROR] Job {job.job_id}: TRACEBACK:\n{error_detail}")
     finally:
         _active_job_id = ""
         _routing_lock.release()
