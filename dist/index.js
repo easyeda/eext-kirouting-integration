@@ -40,6 +40,9 @@ var edaEsbuildExportName = (() => {
   function mil_to_mm(value) {
     return value * 0.0254;
   }
+  function mm_to_mil(value) {
+    return value / 0.0254;
+  }
   function t(key, ...args) {
     return eda.sys_I18n.text(key, uuid, void 0, ...args);
   }
@@ -138,8 +141,8 @@ var edaEsbuildExportName = (() => {
         result.push({ id, name: EASYEDA_TO_KICAD_LAYER[id] });
       } else if (EASYEDA_TO_KICAD_LAYER[id]) {
         const layerType = (layerAny.type ?? "").toUpperCase();
-        const layerName = layerAny.name ?? "";
-        if (layerType === "SIGNAL" && !layerName.startsWith("Inner")) {
+        const layerStatus = String(layerAny.layerStatus ?? "");
+        if (layerType === "SIGNAL" && layerStatus === "1") {
           result.push({ id, name: EASYEDA_TO_KICAD_LAYER[id] });
         }
       }
@@ -524,7 +527,9 @@ var edaEsbuildExportName = (() => {
         stub_layer_swap: config.stub_layer_swap !== false,
         power_nets: config.power_nets || "",
         power_widths: config.power_widths || "",
-        layer_costs: config.layer_costs || ""
+        layer_costs: config.layer_costs || "",
+        units_mm: !!config.units_mm,
+        kicad_file_path: config.kicad_file_path || ""
       }
     };
   }
@@ -537,7 +542,7 @@ var edaEsbuildExportName = (() => {
     }
     return ok;
   }
-  async function applyResults(result, netsToRoute) {
+  async function applyResults(result, netsToRoute, unitsMm = false) {
     const netsSet = new Set(netsToRoute);
     let tracksRemoved = 0;
     try {
@@ -558,26 +563,35 @@ var edaEsbuildExportName = (() => {
     }
     const tracks = result.tracks || [];
     const vias = result.vias || [];
-    console.log(`[KicadBridge] Creating ${tracks.length} tracks, ${vias.length} vias (parallel batch)`);
+    console.log(`[KicadBridge] Creating ${tracks.length} tracks, ${vias.length} vias (parallel batch, unitsMm=${unitsMm})`);
     const tracksCreated = await parallelBatch(tracks, async (track) => {
+      const sx = unitsMm ? Math.round(mm_to_mil(track.startX)) : Math.round(track.startX);
+      const sy = unitsMm ? Math.round(mm_to_mil(track.startY)) : Math.round(track.startY);
+      const ex = unitsMm ? Math.round(mm_to_mil(track.endX)) : Math.round(track.endX);
+      const ey = unitsMm ? Math.round(mm_to_mil(track.endY)) : Math.round(track.endY);
+      const w = unitsMm ? Math.round(mm_to_mil(track.width)) : Math.round(track.width);
       await eda.pcb_PrimitiveLine.create(
         track.net,
         track.layer,
-        Math.round(track.startX),
-        Math.round(track.startY),
-        Math.round(track.endX),
-        Math.round(track.endY),
-        Math.round(track.width),
+        sx,
+        sy,
+        ex,
+        ey,
+        w,
         false
       );
     });
     const viasCreated = await parallelBatch(vias, async (via) => {
+      const x = unitsMm ? mm_to_mil(via.x) : via.x;
+      const y = unitsMm ? mm_to_mil(via.y) : via.y;
+      const hole = unitsMm ? mm_to_mil(via.holeDiameter) : via.holeDiameter;
+      const dia = unitsMm ? mm_to_mil(via.diameter) : via.diameter;
       await eda.pcb_PrimitiveVia.create(
         via.net,
-        via.x,
-        via.y,
-        via.holeDiameter,
-        via.diameter
+        x,
+        y,
+        hole,
+        dia
       );
     });
     return { tracksCreated, viasCreated };
@@ -609,7 +623,7 @@ var edaEsbuildExportName = (() => {
     if (_G.__kicadBridgeGeneration !== _generation) return;
     dbg("start-routing received");
     if (isRoutingInProgress) {
-      sendToIframe("routing-complete", { error: "A routing job is already in progress. Please wait or cancel it first." });
+      sendToIframe("routing-complete", { error: "\u5DF2\u6709\u5E03\u7EBF\u4EFB\u52A1\u6B63\u5728\u8FD0\u884C\uFF0C\u8BF7\u7B49\u5F85\u6216\u53D6\u6D88\u540E\u518D\u8BD5\u3002" });
       return;
     }
     isRoutingInProgress = true;
@@ -618,7 +632,7 @@ var edaEsbuildExportName = (() => {
       const client = new BridgeClient();
       const serverOk = await client.checkServer();
       if (!serverOk) {
-        sendToIframe("routing-complete", { error: "Bridge server is not running. Please start: cd bridge_server && python server.py" });
+        sendToIframe("routing-complete", { error: "\u6865\u63A5\u670D\u52A1\u5668\u672A\u8FD0\u884C\u3002\u8BF7\u542F\u52A8: cd bridge_server && python server.py" });
         return;
       }
       try {
@@ -691,7 +705,7 @@ var edaEsbuildExportName = (() => {
         console.log("[KicadBridge] DRC validation skipped:", e?.message ?? e);
       }
       const t_start = Date.now();
-      sendToIframe("routing-progress", { percent: 10, message: "Collecting PCB data..." });
+      sendToIframe("routing-progress", { percent: 10, message: "\u6B63\u5728\u6536\u96C6 PCB \u6570\u636E..." });
       try {
         const padApi = eda.pcb_PrimitivePad;
         const padApi2 = eda.pcb_Pad;
@@ -719,14 +733,14 @@ var edaEsbuildExportName = (() => {
         pcbData = await collectFullPCBData(config);
         console.log(`[TIMING] collect: ${Date.now() - t_start}ms`);
       } catch (e) {
-        sendToIframe("routing-complete", { error: `Data collection failed: ${e?.message ?? e}` });
+        sendToIframe("routing-complete", { error: `\u6570\u636E\u6536\u96C6\u5931\u8D25: ${e?.message ?? e}` });
         return;
       }
       if (pcbData.nets.length === 0) {
-        sendToIframe("routing-complete", { error: "No nets found on PCB" });
+        sendToIframe("routing-complete", { error: "\u672A\u627E\u5230\u9700\u8981\u5E03\u7EBF\u7684\u7F51\u7EDC" });
         return;
       }
-      sendToIframe("routing-progress", { percent: 15, message: "Submitting to routing engine..." });
+      sendToIframe("routing-progress", { percent: 15, message: "\u6B63\u5728\u63D0\u4EA4\u5230\u5E03\u7EBF\u5F15\u64CE..." });
       const regularComps = pcbData.components.filter((c) => !c.designator.startsWith("_PAD"));
       const standalonePadComps = pcbData.components.filter((c) => c.designator.startsWith("_PAD"));
       let jobId;
@@ -741,10 +755,10 @@ var edaEsbuildExportName = (() => {
         currentJobId = jobId;
         _G.__kicadBridgeJobId = jobId;
       } catch (e) {
-        sendToIframe("routing-complete", { error: `Submit failed: ${e?.message ?? e}` });
+        sendToIframe("routing-complete", { error: `\u63D0\u4EA4\u5931\u8D25: ${e?.message ?? e}` });
         return;
       }
-      sendToIframe("routing-progress", { percent: 20, message: "Routing in progress..." });
+      sendToIframe("routing-progress", { percent: 20, message: "\u6B63\u5728\u5E03\u7EBF..." });
       const startTime = Date.now();
       let finalStatus = "";
       while (Date.now() - startTime < BRIDGE_CONFIG.timeout) {
@@ -755,7 +769,7 @@ var edaEsbuildExportName = (() => {
         }
         const progressMap = { pending: 25, converting: 30, routing: 60, converting_back: 85 };
         const pct = progressMap[status] ?? 50;
-        sendToIframe("routing-progress", { percent: pct, message: `Status: ${status}` });
+        sendToIframe("routing-progress", { percent: pct, message: `\u72B6\u6001: ${status}` });
         await new Promise((resolve) => {
           eda.sys_Timer.setTimeoutTimer("poll-timer", BRIDGE_CONFIG.pollInterval, () => resolve());
         });
@@ -772,7 +786,7 @@ var edaEsbuildExportName = (() => {
         } catch (_) {
         }
         const elapsed = Math.round((Date.now() - startTime) / 1e3);
-        const msg = errorDetail ? `Routing failed: ${errorDetail}` : `Routing did not complete (status: ${finalStatus}, waited ${elapsed}s). The board may be too complex.`;
+        const msg = errorDetail ? `\u5E03\u7EBF\u5931\u8D25: ${errorDetail}` : `\u5E03\u7EBF\u672A\u5B8C\u6210 (\u72B6\u6001: ${finalStatus}, \u5DF2\u7B49\u5F85 ${elapsed}\u79D2)\uFF0CPCB \u53EF\u80FD\u8FC7\u4E8E\u590D\u6742\u3002`;
         console.log(`[KicadBridge] Routing failed: status=${finalStatus}, error=${errorDetail}`);
         sendToIframe("routing-complete", { error: msg });
         currentJobId = null;
@@ -785,29 +799,29 @@ var edaEsbuildExportName = (() => {
         result = await client.getResult(jobId);
         console.log(`[KicadBridge] Result received: status=${result.status}, tracks=${(result.tracks || []).length}, vias=${(result.vias || []).length}`);
       } catch (e) {
-        sendToIframe("routing-complete", { error: `Get result failed: ${e?.message ?? e}` });
+        sendToIframe("routing-complete", { error: `\u83B7\u53D6\u7ED3\u679C\u5931\u8D25: ${e?.message ?? e}` });
         currentJobId = null;
         _G.__kicadBridgeJobId = null;
         return;
       }
       if (result.status === "failed" || result.status === "cancelled") {
-        sendToIframe("routing-complete", { error: result.error || "Routing failed" });
+        sendToIframe("routing-complete", { error: result.error || "\u5E03\u7EBF\u5931\u8D25" });
         currentJobId = null;
         _G.__kicadBridgeJobId = null;
         return;
       }
-      sendToIframe("routing-progress", { percent: 90, message: "Writing results to PCB..." });
+      sendToIframe("routing-progress", { percent: 90, message: "\u6B63\u5728\u5199\u5165\u5E03\u7EBF\u7ED3\u679C..." });
       let tracksCreated = 0;
       let viasCreated = 0;
       try {
         const netsToRoute = config.nets_to_route || [];
         const t_apply0 = Date.now();
-        const applied = await applyResults(result, netsToRoute);
+        const applied = await applyResults(result, netsToRoute, !!config.units_mm);
         console.log(`[TIMING] applyResults: ${Date.now() - t_apply0}ms`);
         tracksCreated = applied.tracksCreated;
         viasCreated = applied.viasCreated;
       } catch (e) {
-        sendToIframe("routing-complete", { error: `Apply failed: ${e?.message ?? e}` });
+        sendToIframe("routing-complete", { error: `\u5199\u5165\u5931\u8D25: ${e?.message ?? e}` });
         currentJobId = null;
         _G.__kicadBridgeJobId = null;
         return;
@@ -841,7 +855,7 @@ var edaEsbuildExportName = (() => {
     }
     isRoutingInProgress = false;
     _G.__kicadBridgeRouting = false;
-    sendToIframe("routing-complete", { error: "Cancelled by user" });
+    sendToIframe("routing-complete", { error: "\u5DF2\u88AB\u7528\u6237\u53D6\u6D88" });
   });
   onIframeMessage("get-nets", async () => {
     if (_G.__kicadBridgeGeneration !== _generation) return;

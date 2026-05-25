@@ -2,360 +2,297 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>KiRouting Bridge Server</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KiRouting Bridge</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
 body {
-  font-family: "Segoe UI", "Microsoft Sans Serif", Tahoma, sans-serif;
-  font-size: 12px; color: #000; background: #f0f0f0;
+  font-family: 'Segoe UI', 'Microsoft YaHei', -apple-system, sans-serif;
+  font-size: 13px;
+  background: #F5F5F5;
+  color: #333;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
 }
-.dialog {
-  display: flex; flex-direction: column;
-  height: 100vh; padding: 24px;
-  align-items: center; justify-content: center;
+.icon { font-size: 40px; margin-bottom: 12px; }
+.title { font-size: 16px; font-weight: 600; margin-bottom: 8px; color: #222; }
+.desc { color: #666; text-align: center; line-height: 1.6; margin-bottom: 12px; max-width: 400px; }
+.steps { color: #555; text-align: left; line-height: 2.0; margin-bottom: 16px; max-width: 400px; font-size: 12px; }
+.btn-group { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; justify-content: center; }
+.btn {
+  padding: 7px 16px;
+  font-size: 12px;
+  border: 1px solid #D0D0D0;
+  border-radius: 4px;
+  background: #FFF;
+  color: #333;
+  cursor: pointer;
+  white-space: nowrap;
 }
-.icon {
-  font-size: 48px; margin-bottom: 16px;
-  color: #d4760a;
+.btn:hover { background: #F0F0F0; border-color: #007AFF; color: #007AFF; }
+.btn-download {
+  background: #34C759;
+  border-color: #34C759;
+  color: #FFF;
+  padding: 8px 20px;
+  font-size: 13px;
 }
-h2 {
-  font-size: 14px; font-weight: 700;
-  margin-bottom: 8px; text-align: center;
+.btn-download:hover { background: #2DB84D; border-color: #2DB84D; color: #FFF; }
+.btn-python {
+  background: #3776AB;
+  border-color: #3776AB;
+  color: #FFF;
+  padding: 8px 20px;
+  font-size: 13px;
 }
-.desc {
-  font-size: 12px; color: #444;
-  margin-bottom: 20px; text-align: center;
-  line-height: 1.6;
+.btn-python:hover { background: #2D5F8A; border-color: #2D5F8A; color: #FFF; }
+.btn-primary {
+  background: #007AFF;
+  border-color: #007AFF;
+  color: #FFF;
+  padding: 8px 20px;
+  font-size: 13px;
+  border-radius: 4px;
 }
-.steps {
-  width: 100%; max-width: 380px;
-  background: #fff; border: 1px solid #ccc;
-  border-radius: 4px; padding: 16px;
-  margin-bottom: 20px;
-}
-.step {
-  display: flex; align-items: flex-start;
-  margin-bottom: 12px;
-}
-.step:last-child { margin-bottom: 0; }
-.step-num {
-  width: 22px; height: 22px;
-  background: #0078d4; color: #fff;
-  border-radius: 50%; display: flex;
-  align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700;
-  flex-shrink: 0; margin-right: 10px; margin-top: 1px;
-}
-.step-text {
-  font-size: 12px; line-height: 1.5;
-  color: #222;
-}
-.step-text a {
-  color: #0078d4; text-decoration: none;
-}
-.step-text a:hover { text-decoration: underline; }
-.buttons {
-  display: flex; gap: 10px;
-  justify-content: center; flex-wrap: wrap;
-}
-button {
-  padding: 6px 16px; font-size: 12px;
-  border: 1px solid #ababab; border-radius: 3px;
-  background: #e1e1e1; color: #000;
-  cursor: pointer; min-width: 100px;
-}
-button:hover { background: #d0d0d0; }
-button.primary {
-  background: #0078d4; color: #fff;
-  border-color: #0078d4;
-}
-button.primary:hover { background: #006cbd; }
-.status {
-  margin-top: 12px; font-size: 11px;
-  color: #666; text-align: center;
-  min-height: 16px;
-}
-.status.error { color: #c42b1c; }
-.status.success { color: #0f7b0f; }
+.btn-primary:hover { background: #0066DD; border-color: #0066DD; color: #FFF; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.status { font-size: 11px; color: #999; margin-top: 8px; min-height: 16px; }
+.status.error { color: #c0392b; }
+.status.success { color: #27ae60; }
 </style>
 </head>
 <body>
-<div class="dialog">
-  <div class="icon">&#9888;</div>
-  <h2 id="title"></h2>
-  <p class="desc" id="desc"></p>
-  <div class="steps">
-    <div class="step">
-      <span class="step-num">1</span>
-      <span class="step-text" id="step1"></span>
-    </div>
-    <div class="step">
-      <span class="step-num">2</span>
-      <span class="step-text" id="step2"></span>
-    </div>
-    <div class="step">
-      <span class="step-num">3</span>
-      <span class="step-text" id="step3"></span>
-    </div>
-  </div>
-  <div class="buttons">
-    <button id="btn-download" class="primary" onclick="openDownload()"></button>
-    <button id="btn-retry" onclick="retry()"></button>
-  </div>
-  <div class="status" id="status"></div>
+<div class="icon">&#x26A0;&#xFE0F;</div>
+<div class="title" id="titleText"></div>
+<div class="desc" id="descText"></div>
+<div class="steps" id="stepsText"></div>
+
+<div class="btn-group">
+  <button class="btn btn-python" onclick="openPython()" id="btnPython"></button>
+  <button class="btn btn-download" onclick="downloadScript()" id="btnDownload"></button>
+  <button class="btn btn-primary" onclick="retry()" id="btnRetry"></button>
 </div>
+<div class="status" id="statusText"></div>
+
 <script>
-var MSG_PREFIX = 'kirouting-integration.';
-var REPO_BASE = 'https://raw.githubusercontent.com/easyeda/eext-kirouting-integration/main/bridge_server';
-var BAT_CONTENT = [
-'@echo off',
-'chcp 65001 >nul 2>&1',
-'setlocal enabledelayedexpansion',
-'',
-'echo ============================================',
-'echo   KiRouting Bridge Server - One-Click Start',
-'echo ============================================',
-'echo.',
-'',
-'cd /d "%~dp0"',
-'',
-'REM --- Configuration ---',
-'set "REPO_BASE=' + REPO_BASE + '"',
-'set "SERVER_DIR=%~dp0bridge_server"',
-'',
-'REM --- Step 1: Check Python ---',
-'echo [1/5] Checking Python...',
-'python --version >nul 2>&1',
-'if errorlevel 1 (',
-'    echo Python not found. Attempting to install via winget...',
-'    winget install Python.Python.3.12 --accept-package-agreements --accept-source-agreements',
-'    if errorlevel 1 (',
-'        echo.',
-'        echo ERROR: Failed to install Python automatically.',
-'        echo Please install Python 3.8+ manually from https://www.python.org/downloads/',
-'        echo Make sure to check "Add Python to PATH" during installation.',
-'        echo.',
-'        pause',
-'        exit /b 1',
-'    )',
-'    echo Python installed. You may need to restart this script for PATH to take effect.',
-'    echo.',
-'    pause',
-'    exit /b 0',
-')',
-'for /f "tokens=2" %%v in (\'python --version 2^>^&1\') do echo   Found Python %%v',
-'',
-'REM --- Step 2: Download bridge_server files ---',
-'echo.',
-'echo [2/5] Downloading bridge server files...',
-'',
-'if not exist "!SERVER_DIR!" mkdir "!SERVER_DIR!"',
-'',
-'set "FILES=server.py routing_runner.py easyeda_to_kicad.py kicad_diff.py layer_mapping.py models.py coord_transform.py analysis.py verify_precision.py requirements.txt"',
-'',
-'set "DOWNLOAD_OK=1"',
-'for %%f in (%FILES%) do (',
-'    if not exist "!SERVER_DIR!\\%%f" (',
-'        echo   Downloading %%f...',
-'        curl -sL "%REPO_BASE%/%%f" -o "!SERVER_DIR!\\%%f"',
-'        if errorlevel 1 (',
-'            set "DOWNLOAD_OK=0"',
-'            echo   ERROR: Failed to download %%f',
-'        )',
-'    ) else (',
-'        echo   %%f already exists, skipping',
-'    )',
-')',
-'',
-'if "!DOWNLOAD_OK!"=="0" (',
-'    echo.',
-'    echo ERROR: Some files failed to download. Please check your network connection.',
-'    echo.',
-'    pause',
-'    exit /b 1',
-')',
-'echo   All files OK',
-'',
-'REM --- Step 3: Check pip dependencies ---',
-'echo.',
-'echo [3/5] Checking Python dependencies...',
-'',
-'python -c "import fastapi; import uvicorn; import numpy" 2>nul',
-'if errorlevel 1 (',
-'    echo   Installing dependencies...',
-'    pip install -r "!SERVER_DIR!\\requirements.txt"',
-'    if errorlevel 1 (',
-'        echo.',
-'        echo ERROR: Failed to install Python dependencies.',
-'        echo Try running manually: pip install -r requirements.txt',
-'        echo.',
-'        pause',
-'        exit /b 1',
-'    )',
-')',
-'echo   Dependencies OK',
-'',
-'REM --- Step 4: Check KiCadRoutingTools ---',
-'echo.',
-'echo [4/5] Checking KiCadRoutingTools...',
-'',
-'set "TOOLS_DIR=%~dp0KiCadRoutingTools"',
-'if not exist "!TOOLS_DIR!\\route.py" (',
-'    echo   KiCadRoutingTools not found, downloading...',
-'    set "ZIP_FILE=%~dp0KiCadRoutingTools.zip"',
-'    curl -sL "https://github.com/drandyhaas/KiCadRoutingTools/archive/refs/heads/main.zip" -o "!ZIP_FILE!"',
-'    if errorlevel 1 (',
-'        echo.',
-'        echo ERROR: Failed to download KiCadRoutingTools.',
-'        echo Please check your network connection.',
-'        echo.',
-'        pause',
-'        exit /b 1',
-'    )',
-'    echo   Extracting...',
-'    %SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -Command "Expand-Archive -Path \'!ZIP_FILE!\' -DestinationPath \'%~dp0\' -Force" 2>nul',
-'    if errorlevel 1 (',
-'        tar -xf "!ZIP_FILE!" -C "%~dp0" 2>nul',
-'        if errorlevel 1 (',
-'            echo.',
-'            echo ERROR: Failed to extract KiCadRoutingTools.',
-'            echo.',
-'            pause',
-'            exit /b 1',
-'        )',
-'    )',
-'    ren "%~dp0KiCadRoutingTools-main" KiCadRoutingTools',
-'    del "!ZIP_FILE!"',
-')',
-'echo   KiCadRoutingTools OK',
-'',
-'REM --- Step 4b: Build Rust router ---',
-'set "RUST_LIB=!TOOLS_DIR!\\rust_router\\rust_astar_router.pyd"',
-'if not exist "!RUST_LIB!" (',
-'    where cargo >nul 2>&1',
-'    if errorlevel 1 (',
-'        echo.',
-'        echo   WARNING: Rust toolchain not found.',
-'        echo   The Rust router is REQUIRED for acceptable routing speed.',
-'        echo   Please install Rust from https://rustup.rs/ and re-run this script.',
-'        echo.',
-'        pause',
-'        exit /b 1',
-'    ) else (',
-'        echo   Building Rust router...',
-'        cd /d "!TOOLS_DIR!"',
-'        python build_router.py',
-'        if errorlevel 1 (',
-'            echo.',
-'            echo   ERROR: Rust router build failed.',
-'            echo   Please ensure Rust is properly installed: https://rustup.rs/',
-'            echo.',
-'            pause',
-'            exit /b 1',
-'        )',
-'        echo   Rust router built successfully',
-'        cd /d "%~dp0"',
-'    )',
-') else (',
-'    echo   Rust router OK',
-')',
-'',
-'REM --- Step 5: Start server ---',
-'echo.',
-'echo [5/5] Starting bridge server...',
-'echo.',
-'echo ============================================',
-'echo   Server running at http://localhost:8765',
-'echo   Press Ctrl+C to stop',
-'echo ============================================',
-'echo.',
-'',
-'cd /d "!SERVER_DIR!"',
-'python server.py',
-'pause'
-].join('\r\n');
+(function() {
+  'use strict';
+  var MSG_PREFIX = 'kirouting-integration.';
+  var BAT_CONTENT = '@echo off\r\nchcp 65001 >nul 2>&1\r\nsetlocal enabledelayedexpansion\r\n\r\necho ============================================\r\necho   KiRouting Bridge Server - One-Click Start\r\necho ============================================\r\necho.\r\n\r\ncd /d "%~dp0"\r\n\r\nREM --- Configuration ---\r\nset "REPO_BASE=https://raw.githubusercontent.com/easyeda/eext-kirouting-integration/main/bridge_server"\r\nset "SERVER_DIR=%~dp0bridge_server"\r\n\r\nREM --- Step 1: Check Python ---\r\necho [1/5] Checking Python...\r\npython --version >nul 2>&1\r\nif errorlevel 1 (\r\n    echo Python not found. Attempting to install via winget...\r\n    winget install Python.Python.3.12 --accept-package-agreements --accept-source-agreements\r\n    if errorlevel 1 (\r\n        echo.\r\n        echo ERROR: Failed to install Python automatically.\r\n        echo Please install Python 3.8+ manually from https://www.python.org/downloads/\r\n        echo Make sure to check "Add Python to PATH" during installation.\r\n        echo.\r\n        pause\r\n        exit /b 1\r\n    )\r\n    echo Python installed. You may need to restart this script for PATH to take effect.\r\n    echo.\r\n    pause\r\n    exit /b 0\r\n)\r\nfor /f "tokens=2" %%v in (\'python --version 2^^>^^&1\') do echo   Found Python %%v\r\n\r\nREM --- Step 2: Download bridge_server files ---\r\necho.\r\necho [2/5] Downloading bridge server files...\r\n\r\nif not exist "!SERVER_DIR!" mkdir "!SERVER_DIR!"\r\n\r\nset "FILES=server.py routing_runner.py easyeda_to_kicad.py kicad_diff.py layer_mapping.py models.py coord_transform.py analysis.py verify_precision.py requirements.txt"\r\n\r\nset "DOWNLOAD_OK=1"\r\nfor %%f in (%FILES%) do (\r\n    if not exist "!SERVER_DIR!\\%%f" (\r\n        echo   Downloading %%f...\r\n        curl -sL "%REPO_BASE%/%%f" -o "!SERVER_DIR!\\%%f"\r\n        if errorlevel 1 (\r\n            set "DOWNLOAD_OK=0"\r\n            echo   ERROR: Failed to download %%f\r\n        )\r\n    ) else (\r\n        echo   %%f already exists, skipping\r\n    )\r\n)\r\n\r\nif "!DOWNLOAD_OK!"=="0" (\r\n    echo.\r\n    echo ERROR: Some files failed to download. Please check your network connection.\r\n    echo.\r\n    pause\r\n    exit /b 1\r\n)\r\necho   All files OK\r\n\r\nREM --- Step 3: Check pip dependencies ---\r\necho.\r\necho [3/5] Checking Python dependencies...\r\n\r\npython -c "import fastapi; import uvicorn; import numpy" 2>nul\r\nif errorlevel 1 (\r\n    echo   Installing dependencies...\r\n    pip install -r "!SERVER_DIR!\\requirements.txt"\r\n    if errorlevel 1 (\r\n        echo.\r\n        echo ERROR: Failed to install Python dependencies.\r\n        echo Try running manually: pip install -r requirements.txt\r\n        echo.\r\n        pause\r\n        exit /b 1\r\n    )\r\n)\r\necho   Dependencies OK\r\n\r\nREM --- Step 4: Check KiCadRoutingTools ---\r\necho.\r\necho [4/5] Checking KiCadRoutingTools...\r\n\r\nset "TOOLS_DIR=%~dp0KiCadRoutingTools"\r\nif not exist "!TOOLS_DIR!\\route.py" (\r\n    echo   KiCadRoutingTools not found, downloading...\r\n    set "ZIP_FILE=%~dp0KiCadRoutingTools.zip"\r\n    curl -sL "https://github.com/drandyhaas/KiCadRoutingTools/archive/refs/heads/main.zip" -o "!ZIP_FILE!"\r\n    if errorlevel 1 (\r\n        echo.\r\n        echo ERROR: Failed to download KiCadRoutingTools.\r\n        echo Please check your network connection.\r\n        echo.\r\n        pause\r\n        exit /b 1\r\n    )\r\n    echo   Extracting...\r\n    %SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -Command "Expand-Archive -Path \'!ZIP_FILE!\' -DestinationPath \'%~dp0\' -Force" 2>nul\r\n    if errorlevel 1 (\r\n        tar -xf "!ZIP_FILE!" -C "%~dp0" 2>nul\r\n        if errorlevel 1 (\r\n            echo.\r\n            echo ERROR: Failed to extract KiCadRoutingTools.\r\n            echo.\r\n            pause\r\n            exit /b 1\r\n        )\r\n    )\r\n    ren "%~dp0KiCadRoutingTools-main" KiCadRoutingTools\r\n    del "!ZIP_FILE!"\r\n)\r\necho   KiCadRoutingTools OK\r\n\r\nREM --- Step 4b: Build Rust router ---\r\nset "RUST_LIB=!TOOLS_DIR!\\rust_router\\rust_astar_router.pyd"\r\nif not exist "!RUST_LIB!" (\r\n    where cargo >nul 2>&1\r\n    if errorlevel 1 (\r\n        echo.\r\n        echo   WARNING: Rust toolchain not found.\r\n        echo   The Rust router is REQUIRED for acceptable routing speed.\r\n        echo   Please install Rust from https://rustup.rs/ and re-run this script.\r\n        echo.\r\n        pause\r\n        exit /b 1\r\n    ) else (\r\n        echo   Building Rust router...\r\n        cd /d "!TOOLS_DIR!"\r\n        python build_router.py\r\n        if errorlevel 1 (\r\n            echo.\r\n            echo   ERROR: Rust router build failed.\r\n            echo   Please ensure Rust is properly installed: https://rustup.rs/\r\n            echo.\r\n            pause\r\n            exit /b 1\r\n        )\r\n        echo   Rust router built successfully\r\n        cd /d "%~dp0"\r\n    )\r\n) else (\r\n    echo   Rust router OK\r\n)\r\n\r\nREM --- Step 5: Start server ---\r\necho.\r\necho [5/5] Starting bridge server...\r\necho.\r\necho ============================================\r\necho   Server running at http://localhost:8765\r\necho   Press Ctrl+C to stop\r\necho ============================================\r\necho.\r\n\r\ncd /d "!SERVER_DIR!"\r\npython server.py\r\npause\r\n';
 
-var isCN = /^zh/i.test(navigator.language || '');
+  var i18n = {
+    zh: {
+      title: 'KiRouting 桥接服务未启动',
+      desc: '请按以下步骤配置并启动桥接服务：',
+      steps: '1. 下载并安装 Python 3.10+（如已安装可跳过）\n2. 下载启动脚本压缩包，解压后运行启动脚本 start_server.bat\n3. 等待服务启动成功后点击"重新检测"',
+      btn_python: '1. 安装 Python',
+      btn_download: '2. 下载启动脚本',
+      btn_retry: '3. 重新检测',
+      retrying: '正在检测服务...',
+      retry_fail: '服务仍未检测到，请确认已启动',
+      retry_ok: '服务已连接，正在打开布线工具...',
+      downloaded: '下载完成，请解压后双击运行'
+    },
+    en: {
+      title: 'KiRouting Bridge Not Running',
+      desc: 'Please follow these steps to start the bridge server:',
+      steps: '1. Download and install Python 3.10+ (skip if installed)\n2. Download the startup script ZIP, extract it, then run start_server.bat\n3. Click "Retry" after the service starts successfully',
+      btn_python: '1. Install Python',
+      btn_download: '2. Download Script',
+      btn_retry: '3. Retry',
+      retrying: 'Detecting service...',
+      retry_fail: 'Service not detected, please confirm it is running',
+      retry_ok: 'Connected! Opening routing tool...',
+      downloaded: 'Downloaded. Extract and double-click to run.'
+    }
+  };
 
-var i18n = {
-  title:    isCN ? '桥接服务器未运行' : 'Bridge Server Not Running',
-  desc:     isCN ? 'KiRouting 桥接服务器未在 localhost:8765 上运行。\n请按以下步骤启动：'
-                 : 'The KiRouting bridge server is not running on localhost:8765.\nPlease follow these steps:',
-  step1:    isCN ? '点击下方按钮 <a href="#" onclick="openDownload();return false">下载启动脚本</a>（start_server.bat）'
-                 : '<a href="#" onclick="openDownload();return false">Download the startup script</a> (start_server.bat)',
-  step2:    isCN ? '双击运行 <b>start_server.bat</b>（自动下载全部文件并安装依赖）'
-                 : 'Double-click <b>start_server.bat</b> (auto-downloads all files and installs dependencies)',
-  step3:    isCN ? '点击下方"重试"按钮重新连接'
-                 : 'Click "Retry" below to reconnect',
-  download: isCN ? '下载启动脚本' : 'Download Script',
-  retry:    isCN ? '重试' : 'Retry',
-  checking: isCN ? '正在检测连接...' : 'Checking connection...',
-  failed:   isCN ? '仍无法连接，请确认服务器已启动' : 'Still cannot connect. Please ensure the server is running.',
-  success:  isCN ? '连接成功！正在打开布线工具...' : 'Connected! Opening routing tool...',
-};
+  var lang = 'zh';
+  var T = i18n[lang];
 
-document.getElementById('title').textContent = i18n.title;
-document.getElementById('desc').textContent = i18n.desc;
-document.getElementById('step1').innerHTML = i18n.step1;
-document.getElementById('step2').innerHTML = i18n.step2;
-document.getElementById('step3').innerHTML = i18n.step3;
-document.getElementById('btn-download').textContent = i18n.download;
-document.getElementById('btn-retry').textContent = i18n.retry;
+  function applyI18n() {
+    document.getElementById('titleText').textContent = T.title;
+    document.getElementById('descText').textContent = T.desc;
+    document.getElementById('stepsText').innerText = T.steps;
+    document.getElementById('btnPython').textContent = T.btn_python;
+    document.getElementById('btnDownload').textContent = T.btn_download;
+    document.getElementById('btnRetry').textContent = T.btn_retry;
+    document.title = T.title;
+  }
 
-function publish(topic, data) {
-  var fullTopic = MSG_PREFIX + topic;
-  var payload = JSON.stringify(data || {});
-  if (window.eda && eda.sys_MessageBus) {
-    if (typeof eda.sys_MessageBus.publish === 'function') {
-      eda.sys_MessageBus.publish(fullTopic, payload);
-    } else if (typeof eda.sys_MessageBus.push === 'function') {
-      eda.sys_MessageBus.push(fullTopic, payload);
+  applyI18n();
+
+  function getEda() {
+    try {
+      if (window.parent && window.parent.eda) return window.parent.eda;
+      if (window.top && window.top.eda) return window.top.eda;
+      if (window.eda) return window.eda;
+    } catch (e) {}
+    return null;
+  }
+
+  (function detectLang() {
+    var retries = 0;
+    function tryDetect() {
+      var e = getEda();
+      if (e && e.sys_I18n) {
+        e.sys_I18n.getCurrentLanguage().then(function(edaLang) {
+          if (edaLang && edaLang.indexOf('zh') === -1) {
+            lang = 'en';
+            T = i18n[lang];
+            applyI18n();
+          }
+        }).catch(function() {});
+      } else if (++retries < 20) {
+        setTimeout(tryDetect, 200);
+      }
+    }
+    tryDetect();
+  })();
+
+  function publish(topic, data) {
+    var e = getEda();
+    if (!e || !e.sys_MessageBus) return;
+    var fullTopic = MSG_PREFIX + topic;
+    if (typeof e.sys_MessageBus.publish === 'function') {
+      e.sys_MessageBus.publish(fullTopic, JSON.stringify(data || {}));
+    } else if (typeof e.sys_MessageBus.push === 'function') {
+      e.sys_MessageBus.push(fullTopic, JSON.stringify(data || {}));
     }
   }
-}
 
-function openDownload() {
-  var blob = new Blob([BAT_CONTENT], { type: 'application/x-bat' });
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'start_server.bat';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
-  var statusEl = document.getElementById('status');
-  statusEl.className = 'status success';
-  statusEl.textContent = isCN ? '下载完成，请双击运行' : 'Downloaded. Double-click to run.';
-}
-
-function retry() {
-  var statusEl = document.getElementById('status');
-  statusEl.className = 'status';
-  statusEl.textContent = i18n.checking;
-  publish('retry-connection', {});
-}
-
-function subscribe(topic, handler) {
-  var fullTopic = MSG_PREFIX + topic;
-  if (window.eda && eda.sys_MessageBus && eda.sys_MessageBus.subscribe) {
-    eda.sys_MessageBus.subscribe(fullTopic, function(msg) {
-      try {
-        handler(typeof msg === 'string' ? JSON.parse(msg) : msg);
-      } catch(e) {}
+  function subscribe(topic, handler) {
+    var e = getEda();
+    if (!e || !e.sys_MessageBus) return;
+    var fullTopic = MSG_PREFIX + topic;
+    e.sys_MessageBus.subscribe(fullTopic, function(msg) {
+      try { handler(typeof msg === 'string' ? JSON.parse(msg) : msg); }
+      catch (err) {}
     });
   }
-}
 
-subscribe('retry-result', function(data) {
-  var statusEl = document.getElementById('status');
-  if (data && data.success) {
+  subscribe('retry-result', function(data) {
+    var statusEl = document.getElementById('statusText');
+    var btn = document.getElementById('btnRetry');
+    btn.disabled = false;
+    if (data && data.success) {
+      statusEl.textContent = T.retry_ok;
+      statusEl.className = 'status success';
+    } else {
+      statusEl.textContent = T.retry_fail;
+      statusEl.className = 'status error';
+    }
+  });
+
+  window.openPython = function() {
+    var e = getEda();
+    if (e && e.sys_Window) {
+      e.sys_Window.open('https://www.python.org/downloads/');
+    }
+  };
+
+  window.downloadScript = function() {
+    var blob = buildZip('start_server.bat', BAT_CONTENT);
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'kirouting-bridge-server.zip';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    var statusEl = document.getElementById('statusText');
     statusEl.className = 'status success';
-    statusEl.textContent = i18n.success;
-  } else {
-    statusEl.className = 'status error';
-    statusEl.textContent = i18n.failed;
+    statusEl.textContent = T.downloaded;
+  };
+
+  function buildZip(filename, contentStr) {
+    var enc = new TextEncoder();
+    var nameBytes = enc.encode(filename);
+    var dataBytes = enc.encode(contentStr);
+    var crc = crc32(dataBytes);
+
+    var localHeader = new ArrayBuffer(30);
+    var lh = new DataView(localHeader);
+    lh.setUint32(0, 0x04034b50, true);
+    lh.setUint16(4, 20, true);
+    lh.setUint16(6, 0, true);
+    lh.setUint16(8, 0, true);
+    lh.setUint16(10, 0, true);
+    lh.setUint16(12, 0, true);
+    lh.setUint32(14, crc, true);
+    lh.setUint32(18, dataBytes.length, true);
+    lh.setUint32(22, dataBytes.length, true);
+    lh.setUint16(26, nameBytes.length, true);
+    lh.setUint16(28, 0, true);
+
+    var central = new ArrayBuffer(46);
+    var cd = new DataView(central);
+    cd.setUint32(0, 0x02014b50, true);
+    cd.setUint16(4, 20, true);
+    cd.setUint16(6, 20, true);
+    cd.setUint16(8, 0, true);
+    cd.setUint16(10, 0, true);
+    cd.setUint16(12, 0, true);
+    cd.setUint16(14, 0, true);
+    cd.setUint32(16, crc, true);
+    cd.setUint32(20, dataBytes.length, true);
+    cd.setUint32(24, dataBytes.length, true);
+    cd.setUint16(28, nameBytes.length, true);
+    cd.setUint16(30, 0, true);
+    cd.setUint16(32, 0, true);
+    cd.setUint16(34, 0, true);
+    cd.setUint16(36, 0, true);
+    cd.setUint32(38, 0, true);
+    cd.setUint32(42, 0, true);
+
+    var localSize = 30 + nameBytes.length + dataBytes.length;
+    var centralSize = 46 + nameBytes.length;
+    var eocd = new ArrayBuffer(22);
+    var e = new DataView(eocd);
+    e.setUint32(0, 0x06054b50, true);
+    e.setUint16(4, 0, true);
+    e.setUint16(6, 0, true);
+    e.setUint16(8, 1, true);
+    e.setUint16(10, 1, true);
+    e.setUint32(12, centralSize, true);
+    e.setUint32(16, localSize, true);
+    e.setUint16(20, 0, true);
+
+    return new Blob([
+      localHeader, nameBytes, dataBytes,
+      central, nameBytes,
+      eocd
+    ], { type: 'application/zip' });
   }
-});
+
+  var _crcTable = null;
+  function crc32(bytes) {
+    if (!_crcTable) {
+      _crcTable = new Uint32Array(256);
+      for (var i = 0; i < 256; i++) {
+        var c = i;
+        for (var j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        _crcTable[i] = c >>> 0;
+      }
+    }
+    var crc = 0xFFFFFFFF;
+    for (var i = 0; i < bytes.length; i++) crc = (_crcTable[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8)) >>> 0;
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  window.retry = function() {
+    var statusEl = document.getElementById('statusText');
+    var btn = document.getElementById('btnRetry');
+    btn.disabled = true;
+    statusEl.textContent = T.retrying;
+    statusEl.className = 'status';
+    publish('retry-connection', {});
+  };
+})();
 </script>
 </body>
 </html>

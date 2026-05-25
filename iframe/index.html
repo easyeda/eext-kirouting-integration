@@ -112,67 +112,67 @@ body {
 <div class="dialog">
   <div class="body-split">
     <div class="left-panel">
-      <div class="section-title">Net Selection</div>
-      <div class="section-desc">Select nets to route...</div>
+      <div class="section-title">网络选择</div>
+      <div class="section-desc">选择需要布线的网络...</div>
       <div class="checkbox-group">
-        <label><input type="checkbox" id="hide-connected" checked> Hide connected</label>
-        <label><input type="checkbox" id="hide-differential"> Hide differential</label>
+        <label><input type="checkbox" id="hide-connected" checked> 隐藏已连接</label>
+        <label><input type="checkbox" id="hide-differential"> 隐藏差分对</label>
       </div>
       <div class="form-row">
-        <span class="form-label">Component:</span>
-        <select id="component-select"><option value="">(none)</option></select>
+        <span class="form-label">元件：</span>
+        <select id="component-select"><option value="">（无）</option></select>
       </div>
       <div class="form-row">
-        <span class="form-label">Filter:</span>
+        <span class="form-label">网络过滤：</span>
         <input type="text" id="net-filter">
       </div>
       <div class="form-row">
-        <span class="form-label">Comp Filter:</span>
+        <span class="form-label">元件过滤：</span>
         <input type="text" id="comp-filter">
       </div>
       <div class="net-list" id="net-list"></div>
     </div>
     <div class="right-panel">
-      <div class="section-title">Parameters</div>
+      <div class="section-title">布线参数</div>
       <div class="param-grid">
-        <span class="form-label">Track Width (mm):</span><input type="number" id="track-width" value="0.30" step="0.01" min="0.01">
-        <span class="form-label">Clearance (mm):</span><input type="number" id="clearance" value="0.25" step="0.01" min="0.01">
-        <span class="form-label">Via Size (mm):</span><input type="number" id="via-size" value="0.50" step="0.01" min="0.1">
-        <span class="form-label">Via Drill (mm):</span><input type="number" id="via-drill" value="0.30" step="0.01" min="0.05">
-        <span class="form-label">Hole Clearance (mm):</span><input type="number" id="hole-clearance" value="0.25" step="0.01" min="0.01">
-        <span class="form-label">Board Edge Clearance (mm):</span><input type="number" id="board-edge-clearance" value="0.25" step="0.01" min="0">
-        <span class="form-label">Grid Step (mm):</span><input type="number" id="grid-step" value="0.10" step="0.01" min="0.01">
-        <span class="form-label">Via Cost:</span><input type="number" id="via-cost" value="50" step="1" min="1">
-        <span class="form-label">Max Rip-up:</span><input type="number" id="max-ripup" value="3" step="1" min="0">
+        <span class="form-label">线宽 (mm)：</span><input type="number" id="track-width" value="0.30" step="0.01" min="0.01">
+        <span class="form-label">间距 (mm)：</span><input type="number" id="clearance" value="0.25" step="0.01" min="0.01">
+        <span class="form-label">过孔外径 (mm)：</span><input type="number" id="via-size" value="0.50" step="0.01" min="0.1">
+        <span class="form-label">过孔内径 (mm)：</span><input type="number" id="via-drill" value="0.30" step="0.01" min="0.05">
+        <span class="form-label">孔间距 (mm)：</span><input type="number" id="hole-clearance" value="0.25" step="0.01" min="0.01">
+        <span class="form-label">板边间距 (mm)：</span><input type="number" id="board-edge-clearance" value="0.25" step="0.01" min="0">
+        <span class="form-label">网格步长 (mm)：</span><input type="number" id="grid-step" value="0.10" step="0.01" min="0.01">
+        <span class="form-label">过孔代价：</span><input type="number" id="via-cost" value="50" step="1" min="1">
+        <span class="form-label">最大拆线次数：</span><input type="number" id="max-ripup" value="3" step="1" min="0">
       </div>
-      <div class="section-title">Layers</div>
+      <div class="section-title">铜层</div>
       <div id="layer-checkboxes" class="checkbox-group horizontal"></div>
-      <div class="section-title">Options</div>
+      <div class="section-title">高级选项</div>
       <div class="checkbox-group">
-        <label><input type="checkbox" id="stub-layer-swap" checked> Stub layer swaps</label>
+        <label><input type="checkbox" id="stub-layer-swap" checked> 短桩换层优化</label>
       </div>
       <div class="param-grid compact">
-        <span class="form-label">Power Nets:</span><input type="text" id="power-nets" placeholder="">
-        <span class="form-label">Power Widths:</span><input type="text" id="power-widths" placeholder="">
-        <span class="form-label">Layer Costs:</span><input type="text" id="layer-costs" value="1.0 3.0">
+        <span class="form-label">电源网络：</span><input type="text" id="power-nets" placeholder="">
+        <span class="form-label">电源线宽：</span><input type="text" id="power-widths" placeholder="">
+        <span class="form-label">层代价：</span><input type="text" id="layer-costs" value="1.0 3.0">
       </div>
-      <div class="section-title">Progress</div>
+      <div class="section-title">进度</div>
       <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-      <div class="progress-text" id="progress-text">Ready</div>
+      <div class="progress-text" id="progress-text">就绪</div>
     </div>
   </div>
   <div class="button-bar">
     <div class="button-bar-left">
-      <button id="btn-select-all">Select</button>
-      <button id="btn-select-none">Unselect</button>
+      <button id="btn-select-all">全选</button>
+      <button id="btn-select-none">取消全选</button>
     </div>
     <div class="button-bar-right">
-      <button id="btn-route">Route</button>
-      <button id="btn-cancel" disabled>Close</button>
+      <button id="btn-route">开始布线</button>
+      <button id="btn-cancel" disabled>关闭</button>
     </div>
   </div>
   <div class="status-bar" id="status-bar">
-    Total: 0 | Connected: 0 | To route: 0 | Selected: 0
+    总计: 0 | 已连接: 0 | 待布线: 0 | 已选择: 0
   </div>
 </div>
 <script>
@@ -248,7 +248,7 @@ body {
     });
     onExtMessage('routing-progress', function(data) {
       setProgress(data.percent || 0);
-      setStatus(data.message || 'Routing...');
+      setStatus(data.message || '布线中...');
     });
     onExtMessage('routing-complete', function(data) {
       if (data.error) {
@@ -257,7 +257,7 @@ body {
       } else {
         var s = data.stats || {};
         setProgress(100);
-        setStatus('Done: ' + (s.nets_routed||0) + ' nets, ' + (s.tracks_added||0) + ' tracks, ' + (s.vias_added||0) + ' vias (' + (s.time_seconds||0).toFixed(1) + 's)');
+        setStatus('完成: ' + (s.nets_routed||0) + ' 条网络, ' + (s.tracks_added||0) + ' 条走线, ' + (s.vias_added||0) + ' 个过孔 (' + (s.time_seconds||0).toFixed(1) + '秒)');
         selectedNets = {};
         sendToExt('get-nets', {});
       }
@@ -344,7 +344,7 @@ body {
     var total = allNets.length;
     var conn = allNets.filter(function(n) { return n.isConnected; }).length;
     var sel = Object.keys(selectedNets).length;
-    bar.textContent = 'Total: ' + total + ' | Connected: ' + conn + ' | To route: ' + (total - conn) + ' | Selected: ' + sel;
+    bar.textContent = '总计: ' + total + ' | 已连接: ' + conn + ' | 待布线: ' + (total - conn) + ' | 已选择: ' + sel;
   }
 
   function bindEvents() {
@@ -370,7 +370,7 @@ body {
 
   function startRouting() {
     var netsToRoute = Object.keys(selectedNets);
-    if (netsToRoute.length === 0) { setStatus('Check nets to include in operation'); return; }
+    if (netsToRoute.length === 0) { setStatus('请先选择需要布线的网络'); return; }
 
     // DRC validation in iframe before sending message
     if (drcLimits) {
@@ -400,7 +400,7 @@ body {
         }
       }
       if (errors.length > 0) {
-        setStatus('DRC validation failed:\n' + errors.join('\n'), true);
+        setStatus('DRC 校验失败:\n' + errors.join('\n'), true);
         return;
       }
     }
@@ -429,12 +429,12 @@ body {
     _id('btn-route').disabled = true;
     _id('btn-cancel').disabled = false;
     setProgress(5);
-    setStatus('Routing - ' + netsToRoute.length + ' nets selected');
+    setStatus('布线中 - 已选择 ' + netsToRoute.length + ' 条网络');
     saveSettings();
     sendToExt('start-routing', config);
   }
 
-  function cancelRouting() { sendToExt('cancel-routing', {}); setStatus('Cancelling...'); }
+  function cancelRouting() { sendToExt('cancel-routing', {}); setStatus('正在取消...'); }
   function finishRouting() { routingInProgress = false; _id('btn-route').disabled = false; _id('btn-cancel').disabled = true; }
   function setProgress(pct) { var f = _id('progress-fill'); if (f) f.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
   function setStatus(text, isError) { var st = _id('progress-text'); if (st) { st.textContent = text; st.className = 'progress-text' + (isError ? ' error' : ''); } }

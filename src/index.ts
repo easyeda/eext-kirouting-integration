@@ -18,6 +18,10 @@ function mil_to_mm(value: number): number {
 	return value * 0.0254;
 }
 
+function mm_to_mil(value: number): number {
+	return value / 0.0254;
+}
+
 function t(key: string, ...args: any[]): string {
 	return eda.sys_I18n.text(key, uuid, undefined, ...args);
 }
@@ -110,8 +114,8 @@ async function collectLayers(): Promise<Array<{id: number; name: string}>> {
 			result.push({ id, name: EASYEDA_TO_KICAD_LAYER[id] });
 		} else if (EASYEDA_TO_KICAD_LAYER[id]) {
 			const layerType = (layerAny.type ?? '').toUpperCase();
-			const layerName = layerAny.name ?? '';
-			if (layerType === 'SIGNAL' && !layerName.startsWith('Inner')) {
+			const layerStatus = String(layerAny.layerStatus ?? '');
+			if (layerType === 'SIGNAL' && layerStatus === '1') {
 				result.push({ id, name: EASYEDA_TO_KICAD_LAYER[id] });
 			}
 		}
@@ -495,6 +499,8 @@ async function collectFullPCBData(config: any): Promise<any> {
 			power_nets: config.power_nets || '',
 			power_widths: config.power_widths || '',
 			layer_costs: config.layer_costs || '',
+			units_mm: !!config.units_mm,
+			kicad_file_path: config.kicad_file_path || '',
 		},
 	};
 }
@@ -511,7 +517,7 @@ async function parallelBatch<T>(items: T[], fn: (item: T) => Promise<void>, conc
 	return ok;
 }
 
-async function applyResults(result: any, netsToRoute: string[]): Promise<{tracksCreated: number; viasCreated: number; tracksRemoved: number}> {
+async function applyResults(result: any, netsToRoute: string[], unitsMm: boolean = false): Promise<{tracksCreated: number; viasCreated: number; tracksRemoved: number}> {
 	const netsSet = new Set(netsToRoute);
 
 	// Parallel delete existing lines & vias on target nets
@@ -542,22 +548,29 @@ async function applyResults(result: any, netsToRoute: string[]): Promise<{tracks
 
 	const tracks = result.tracks || [];
 	const vias = result.vias || [];
-	console.log(`[KicadBridge] Creating ${tracks.length} tracks, ${vias.length} vias (parallel batch)`);
+	console.log(`[KicadBridge] Creating ${tracks.length} tracks, ${vias.length} vias (parallel batch, unitsMm=${unitsMm})`);
 
 	// Parallel create tracks
 	const tracksCreated = await parallelBatch(tracks, async (track: any) => {
+		const sx = unitsMm ? Math.round(mm_to_mil(track.startX)) : Math.round(track.startX);
+		const sy = unitsMm ? Math.round(mm_to_mil(track.startY)) : Math.round(track.startY);
+		const ex = unitsMm ? Math.round(mm_to_mil(track.endX)) : Math.round(track.endX);
+		const ey = unitsMm ? Math.round(mm_to_mil(track.endY)) : Math.round(track.endY);
+		const w = unitsMm ? Math.round(mm_to_mil(track.width)) : Math.round(track.width);
 		await eda.pcb_PrimitiveLine.create(
 			track.net, track.layer as any,
-			Math.round(track.startX), Math.round(track.startY),
-			Math.round(track.endX), Math.round(track.endY),
-			Math.round(track.width), false,
+			sx, sy, ex, ey, w, false,
 		);
 	});
 
 	// Parallel create vias
 	const viasCreated = await parallelBatch(vias, async (via: any) => {
+		const x = unitsMm ? mm_to_mil(via.x) : via.x;
+		const y = unitsMm ? mm_to_mil(via.y) : via.y;
+		const hole = unitsMm ? mm_to_mil(via.holeDiameter) : via.holeDiameter;
+		const dia = unitsMm ? mm_to_mil(via.diameter) : via.diameter;
 		await eda.pcb_PrimitiveVia.create(
-			via.net, via.x, via.y, via.holeDiameter, via.diameter,
+			via.net, x, y, hole, dia,
 		);
 	});
 
@@ -600,7 +613,7 @@ onIframeMessage('start-routing', async (config: any) => {
 	dbg('start-routing received');
 
 	if (isRoutingInProgress) {
-		sendToIframe('routing-complete', { error: 'A routing job is already in progress. Please wait or cancel it first.' });
+		sendToIframe('routing-complete', { error: '已有布线任务正在运行，请等待或取消后再试。' });
 		return;
 	}
 	isRoutingInProgress = true; _G.__kicadBridgeRouting = true;
@@ -610,7 +623,7 @@ onIframeMessage('start-routing', async (config: any) => {
 
 	const serverOk = await client.checkServer();
 	if (!serverOk) {
-		sendToIframe('routing-complete', { error: 'Bridge server is not running. Please start: cd bridge_server && python server.py' });
+		sendToIframe('routing-complete', { error: '桥接服务器未运行。请启动: cd bridge_server && python server.py' });
 		return;
 	}
 
@@ -699,7 +712,7 @@ onIframeMessage('start-routing', async (config: any) => {
 	}
 
 	const t_start = Date.now();
-		sendToIframe('routing-progress', { percent: 10, message: 'Collecting PCB data...' });
+		sendToIframe('routing-progress', { percent: 10, message: '正在收集 PCB 数据...' });
 
 	try {
 		const padApi = (eda as any).pcb_PrimitivePad;
@@ -729,16 +742,16 @@ onIframeMessage('start-routing', async (config: any) => {
 		pcbData = await collectFullPCBData(config);
 		console.log(`[TIMING] collect: ${Date.now() - t_start}ms`);
 	} catch (e: any) {
-		sendToIframe('routing-complete', { error: `Data collection failed: ${e?.message ?? e}` });
+		sendToIframe('routing-complete', { error: `数据收集失败: ${e?.message ?? e}` });
 		return;
 	}
 
 	if (pcbData.nets.length === 0) {
-		sendToIframe('routing-complete', { error: 'No nets found on PCB' });
+		sendToIframe('routing-complete', { error: '未找到需要布线的网络' });
 		return;
 	}
 
-	sendToIframe('routing-progress', { percent: 15, message: 'Submitting to routing engine...' });
+	sendToIframe('routing-progress', { percent: 15, message: '正在提交到布线引擎...' });
 
 	const regularComps = pcbData.components.filter((c: any) => !c.designator.startsWith('_PAD'));
 	const standalonePadComps = pcbData.components.filter((c: any) => c.designator.startsWith('_PAD'));
@@ -754,11 +767,11 @@ onIframeMessage('start-routing', async (config: any) => {
 		console.log(`[TIMING] submit: ${Date.now() - t_start}ms`);
 		currentJobId = jobId; _G.__kicadBridgeJobId = jobId;
 	} catch (e: any) {
-		sendToIframe('routing-complete', { error: `Submit failed: ${e?.message ?? e}` });
+		sendToIframe('routing-complete', { error: `提交失败: ${e?.message ?? e}` });
 		return;
 	}
 
-	sendToIframe('routing-progress', { percent: 20, message: 'Routing in progress...' });
+	sendToIframe('routing-progress', { percent: 20, message: '正在布线...' });
 
 	// Poll until terminal status or timeout
 	const startTime = Date.now();
@@ -771,7 +784,7 @@ onIframeMessage('start-routing', async (config: any) => {
 		}
 		const progressMap: Record<string, number> = { pending: 25, converting: 30, routing: 60, converting_back: 85 };
 		const pct = progressMap[status] ?? 50;
-		sendToIframe('routing-progress', { percent: pct, message: `Status: ${status}` });
+		sendToIframe('routing-progress', { percent: pct, message: `状态: ${status}` });
 
 		await new Promise<void>(resolve => {
 			eda.sys_Timer.setTimeoutTimer('poll-timer', BRIDGE_CONFIG.pollInterval, () => resolve());
@@ -793,8 +806,8 @@ onIframeMessage('start-routing', async (config: any) => {
 		} catch (_) {}
 		const elapsed = Math.round((Date.now() - startTime) / 1000);
 		const msg = errorDetail
-			? `Routing failed: ${errorDetail}`
-			: `Routing did not complete (status: ${finalStatus}, waited ${elapsed}s). The board may be too complex.`;
+			? `布线失败: ${errorDetail}`
+			: `布线未完成 (状态: ${finalStatus}, 已等待 ${elapsed}秒)，PCB 可能过于复杂。`;
 		console.log(`[KicadBridge] Routing failed: status=${finalStatus}, error=${errorDetail}`);
 		sendToIframe('routing-complete', { error: msg });
 		currentJobId = null; _G.__kicadBridgeJobId = null;
@@ -807,30 +820,30 @@ onIframeMessage('start-routing', async (config: any) => {
 			result = await client.getResult(jobId);
 		console.log(`[KicadBridge] Result received: status=${result.status}, tracks=${(result.tracks||[]).length}, vias=${(result.vias||[]).length}`);
 	} catch (e: any) {
-		sendToIframe('routing-complete', { error: `Get result failed: ${e?.message ?? e}` });
+		sendToIframe('routing-complete', { error: `获取结果失败: ${e?.message ?? e}` });
 		currentJobId = null; _G.__kicadBridgeJobId = null;
 		return;
 	}
 
 	if (result.status === 'failed' || result.status === 'cancelled') {
-		sendToIframe('routing-complete', { error: result.error || 'Routing failed' });
+		sendToIframe('routing-complete', { error: result.error || '布线失败' });
 		currentJobId = null; _G.__kicadBridgeJobId = null;
 		return;
 	}
 
-	sendToIframe('routing-progress', { percent: 90, message: 'Writing results to PCB...' });
+	sendToIframe('routing-progress', { percent: 90, message: '正在写入布线结果...' });
 
 	let tracksCreated = 0;
 	let viasCreated = 0;
 	try {
 		const netsToRoute = config.nets_to_route || [];
 		const t_apply0 = Date.now();
-			const applied = await applyResults(result, netsToRoute);
+			const applied = await applyResults(result, netsToRoute, !!config.units_mm);
 			console.log(`[TIMING] applyResults: ${Date.now() - t_apply0}ms`);
 		tracksCreated = applied.tracksCreated;
 		viasCreated = applied.viasCreated;
 	} catch (e: any) {
-		sendToIframe('routing-complete', { error: `Apply failed: ${e?.message ?? e}` });
+		sendToIframe('routing-complete', { error: `写入失败: ${e?.message ?? e}` });
 		currentJobId = null; _G.__kicadBridgeJobId = null;
 		return;
 	}
@@ -859,7 +872,7 @@ onIframeMessage('cancel-routing', async () => {
 		currentJobId = null; _G.__kicadBridgeJobId = null;
 	}
 	isRoutingInProgress = false; _G.__kicadBridgeRouting = false;
-	sendToIframe('routing-complete', { error: 'Cancelled by user' });
+	sendToIframe('routing-complete', { error: '已被用户取消' });
 });
 
 onIframeMessage('get-nets', async () => {
