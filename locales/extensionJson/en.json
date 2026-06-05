@@ -1,4 +1,9 @@
 {
 	"displayName": "KiCad Auto-Routing Bridge",
-	"description": "Bridge extension to use KiCadRouting Tools for PCB auto-routing in EasyEDA Pro"
+	"description": "Bridge extension to use KiCadRouting Tools for PCB auto-routing in EasyEDA Pro",
+	"Autoroute": "Autoroute",
+	"PCB": "PCB",
+	"Routing": "Routing",
+	"布线": "Routing",
+	"自动布线": "Auto-Routing"
 }

@@ -1,4 +1,9 @@
 {
 	"displayName": "KiCad 自动布线桥接",
-	"description": "通过桥接服务器调用 KiCadRouting Tools 实现 PCB 自动布线"
+	"description": "通过桥接服务器调用 KiCadRouting Tools 实现 PCB 自动布线",
+	"Autoroute": "自动布线",
+	"PCB": "PCB",
+	"Routing": "布线",
+	"布线": "布线",
+	"自动布线": "自动布线"
 }

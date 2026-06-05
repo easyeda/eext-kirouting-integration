@@ -91,44 +91,20 @@ body {
     return bytes;
   }
 
-  var i18n = {
-    zh: {
-      title: 'KiRouting 桥接服务未启动',
-      desc: '请按以下步骤配置并启动桥接服务：',
-      steps: '1. 下载并安装 Python 3.10+（如已安装可跳过）\n2. 下载启动脚本压缩包，解压后运行启动脚本 start_server.bat\n3. 等待服务启动成功后点击"重新检测"',
-      btn_python: '1. 安装 Python',
-      btn_download: '2. 下载启动脚本',
-      btn_retry: '3. 重新检测',
-      retrying: '正在检测服务...',
-      retry_fail: '服务仍未检测到，请确认已启动',
-      retry_ok: '服务已连接，正在打开布线工具...',
-      downloaded: '下载完成，请解压后双击运行'
-    },
-    en: {
-      title: 'KiRouting Bridge Not Running',
-      desc: 'Please follow these steps to start the bridge server:',
-      steps: '1. Download and install Python 3.10+ (skip if installed)\n2. Download the startup script ZIP, extract it, then run start_server.bat\n3. Click "Retry" after the service starts successfully',
-      btn_python: '1. Install Python',
-      btn_download: '2. Download Script',
-      btn_retry: '3. Retry',
-      retrying: 'Detecting service...',
-      retry_fail: 'Service not detected, please confirm it is running',
-      retry_ok: 'Connected! Opening routing tool...',
-      downloaded: 'Downloaded. Extract and double-click to run.'
-    }
-  };
-
-  var lang = 'zh';
-  var T = i18n[lang];
+  var edaObj = (typeof eda !== 'undefined') ? eda : (window.parent && window.parent.eda);
+  function t(tag) {
+	  if (edaObj && edaObj.sys_I18n) return edaObj.sys_I18n.text(tag);
+	  return tag;
+  }
 
   function applyI18n() {
-    document.getElementById('titleText').textContent = T.title;
-    document.getElementById('descText').textContent = T.desc;
-    document.getElementById('stepsText').innerText = T.steps;
-    document.getElementById('btnPython').textContent = T.btn_python;
-    document.getElementById('btnDownload').textContent = T.btn_download;
-    document.getElementById('btnRetry').textContent = T.btn_retry;
-    document.title = T.title;
+    document.getElementById('titleText').textContent = t('Kirouting.ServiceNotRunning.Title');
+    document.getElementById('descText').textContent = t('Kirouting.ServiceNotRunning.Desc');
+    document.getElementById('stepsText').innerText = t('Kirouting.ServiceNotRunning.Steps');
+    document.getElementById('btnPython').textContent = t('Kirouting.ServiceNotRunning.BtnPython');
+    document.getElementById('btnDownload').textContent = t('Kirouting.ServiceNotRunning.BtnDownload');
+    document.getElementById('btnRetry').textContent = t('Kirouting.ServiceNotRunning.BtnRetry');
+    document.title = t('Kirouting.ServiceNotRunning.Title');
   }
 
   applyI18n();
@@ -141,25 +117,6 @@ body {
     } catch (e) {}
     return null;
   }
-
-  (function detectLang() {
-    var retries = 0;
-    function tryDetect() {
-      var e = getEda();
-      if (e && e.sys_I18n) {
-        e.sys_I18n.getCurrentLanguage().then(function(edaLang) {
-          if (edaLang && edaLang.indexOf('zh') === -1) {
-            lang = 'en';
-            T = i18n[lang];
-            applyI18n();
-          }
-        }).catch(function() {});
-      } else if (++retries < 20) {
-        setTimeout(tryDetect, 200);
-      }
-    }
-    tryDetect();
-  })();
 
   function publish(topic, data) {
     var e = getEda();
@@ -187,10 +144,10 @@ body {
     var btn = document.getElementById('btnRetry');
     btn.disabled = false;
     if (data && data.success) {
-      statusEl.textContent = T.retry_ok;
+      statusEl.textContent = t('Kirouting.ServiceNotRunning.RetryOk');
       statusEl.className = 'status success';
     } else {
-      statusEl.textContent = T.retry_fail;
+      statusEl.textContent = t('Kirouting.ServiceNotRunning.RetryFail');
       statusEl.className = 'status error';
     }
   });
@@ -214,7 +171,7 @@ body {
     URL.revokeObjectURL(a.href);
     var statusEl = document.getElementById('statusText');
     statusEl.className = 'status success';
-    statusEl.textContent = T.downloaded;
+    statusEl.textContent = t('Kirouting.ServiceNotRunning.Downloaded');
   };
 
   function buildZip(filename, dataBytes) {
@@ -295,7 +252,7 @@ body {
     var statusEl = document.getElementById('statusText');
     var btn = document.getElementById('btnRetry');
     btn.disabled = true;
-    statusEl.textContent = T.retrying;
+    statusEl.textContent = t('Kirouting.ServiceNotRunning.Retrying');
     statusEl.className = 'status';
     publish('retry-connection', {});
   };
