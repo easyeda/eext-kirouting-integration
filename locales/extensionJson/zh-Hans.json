@@ -1,6 +1,6 @@
 {
-	"displayName": "KiCad 自动布线桥接",
-	"description": "通过桥接服务器调用 KiCadRouting Tools 实现 PCB 自动布线",
+	"KiRouting": "KiRouting",
+	"通过本地桥接服务器调用 KiCadRoutingTools 实现 PCB 自动布线，支持单端布线、差分对、BGA扇出等高级功能": "通过本地桥接服务器调用 KiCadRoutingTools 实现 PCB 自动布线，支持单端布线、差分对、BGA扇出等高级功能",
 	"Autoroute": "自动布线",
 	"PCB": "PCB",
 	"Routing": "布线",
