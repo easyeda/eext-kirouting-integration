@@ -98,13 +98,13 @@ body {
   }
 
   function applyI18n() {
-    document.getElementById('titleText').textContent = t('Kirouting.ServiceNotRunning.Title');
-    document.getElementById('descText').textContent = t('Kirouting.ServiceNotRunning.Desc');
-    document.getElementById('stepsText').innerText = t('Kirouting.ServiceNotRunning.Steps');
-    document.getElementById('btnPython').textContent = t('Kirouting.ServiceNotRunning.BtnPython');
-    document.getElementById('btnDownload').textContent = t('Kirouting.ServiceNotRunning.BtnDownload');
-    document.getElementById('btnRetry').textContent = t('Kirouting.ServiceNotRunning.BtnRetry');
-    document.title = t('Kirouting.ServiceNotRunning.Title');
+    document.getElementById('titleText').textContent = t('KiRouting Bridge Not Running');
+    document.getElementById('descText').textContent = t('Please follow these steps to start the bridge server:');
+    document.getElementById('stepsText').innerText = t('1. Download and install Python 3.10+ (skip if installed)\n2. Download the startup script ZIP, extract it, then run start_server.bat\n3. Click "Retry" after the service starts successfully');
+    document.getElementById('btnPython').textContent = t('1. Install Python');
+    document.getElementById('btnDownload').textContent = t('2. Download Script');
+    document.getElementById('btnRetry').textContent = t('3. Retry');
+    document.title = t('KiRouting Bridge Not Running');
   }
 
   applyI18n();
@@ -144,10 +144,10 @@ body {
     var btn = document.getElementById('btnRetry');
     btn.disabled = false;
     if (data && data.success) {
-      statusEl.textContent = t('Kirouting.ServiceNotRunning.RetryOk');
+      statusEl.textContent = t('Connected! Opening routing tool...');
       statusEl.className = 'status success';
     } else {
-      statusEl.textContent = t('Kirouting.ServiceNotRunning.RetryFail');
+      statusEl.textContent = t('Service not detected, please confirm it is running');
       statusEl.className = 'status error';
     }
   });
@@ -171,7 +171,7 @@ body {
     URL.revokeObjectURL(a.href);
     var statusEl = document.getElementById('statusText');
     statusEl.className = 'status success';
-    statusEl.textContent = t('Kirouting.ServiceNotRunning.Downloaded');
+    statusEl.textContent = t('Downloaded. Extract and double-click to run.');
   };
 
   function buildZip(filename, dataBytes) {
@@ -252,7 +252,7 @@ body {
     var statusEl = document.getElementById('statusText');
     var btn = document.getElementById('btnRetry');
     btn.disabled = true;
-    statusEl.textContent = t('Kirouting.ServiceNotRunning.Retrying');
+    statusEl.textContent = t('Detecting service...');
     statusEl.className = 'status';
     publish('retry-connection', {});
   };

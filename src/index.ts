@@ -613,7 +613,7 @@ onIframeMessage('start-routing', async (config: any) => {
 	dbg('start-routing received');
 
 	if (isRoutingInProgress) {
-		sendToIframe('routing-complete', { error: '已有布线任务正在运行，请等待或取消后再试。' });
+		sendToIframe('routing-complete', { error: t('Another routing task is already running, please wait or cancel first.') });
 		return;
 	}
 	isRoutingInProgress = true; _G.__kicadBridgeRouting = true;
@@ -623,7 +623,7 @@ onIframeMessage('start-routing', async (config: any) => {
 
 	const serverOk = await client.checkServer();
 	if (!serverOk) {
-		sendToIframe('routing-complete', { error: '桥接服务器未运行。请启动: cd bridge_server && python server.py' });
+		sendToIframe('routing-complete', { error: t('Bridge server not running. Please start: cd bridge_server && python server.py') });
 		return;
 	}
 
@@ -712,7 +712,7 @@ onIframeMessage('start-routing', async (config: any) => {
 	}
 
 	const t_start = Date.now();
-		sendToIframe('routing-progress', { percent: 10, message: '正在收集 PCB 数据...' });
+		sendToIframe('routing-progress', { percent: 10, message: t('Collecting PCB data...') });
 
 	try {
 		const padApi = (eda as any).pcb_PrimitivePad;
@@ -742,16 +742,16 @@ onIframeMessage('start-routing', async (config: any) => {
 		pcbData = await collectFullPCBData(config);
 		console.log(`[TIMING] collect: ${Date.now() - t_start}ms`);
 	} catch (e: any) {
-		sendToIframe('routing-complete', { error: `数据收集失败: ${e?.message ?? e}` });
+		sendToIframe('routing-complete', { error: t('Data collection failed: ${1}', e?.message ?? e) });
 		return;
 	}
 
 	if (pcbData.nets.length === 0) {
-		sendToIframe('routing-complete', { error: '未找到需要布线的网络' });
+		sendToIframe('routing-complete', { error: t('No unrouted nets found') });
 		return;
 	}
 
-	sendToIframe('routing-progress', { percent: 15, message: '正在提交到布线引擎...' });
+	sendToIframe('routing-progress', { percent: 15, message: t('Submitting to routing engine...') });
 
 	const regularComps = pcbData.components.filter((c: any) => !c.designator.startsWith('_PAD'));
 	const standalonePadComps = pcbData.components.filter((c: any) => c.designator.startsWith('_PAD'));
@@ -767,11 +767,11 @@ onIframeMessage('start-routing', async (config: any) => {
 		console.log(`[TIMING] submit: ${Date.now() - t_start}ms`);
 		currentJobId = jobId; _G.__kicadBridgeJobId = jobId;
 	} catch (e: any) {
-		sendToIframe('routing-complete', { error: `提交失败: ${e?.message ?? e}` });
+		sendToIframe('routing-complete', { error: t('Submit failed: ${1}', e?.message ?? e) });
 		return;
 	}
 
-	sendToIframe('routing-progress', { percent: 20, message: '正在布线...' });
+	sendToIframe('routing-progress', { percent: 20, message: t('Routing in progress...') });
 
 	// Poll until terminal status or timeout
 	const startTime = Date.now();
@@ -784,7 +784,7 @@ onIframeMessage('start-routing', async (config: any) => {
 		}
 		const progressMap: Record<string, number> = { pending: 25, converting: 30, routing: 60, converting_back: 85 };
 		const pct = progressMap[status] ?? 50;
-		sendToIframe('routing-progress', { percent: pct, message: `状态: ${status}` });
+		sendToIframe('routing-progress', { percent: pct, message: t('Status: ${1}', status) });
 
 		await new Promise<void>(resolve => {
 			eda.sys_Timer.setTimeoutTimer('poll-timer', BRIDGE_CONFIG.pollInterval, () => resolve());
@@ -806,8 +806,8 @@ onIframeMessage('start-routing', async (config: any) => {
 		} catch (_) {}
 		const elapsed = Math.round((Date.now() - startTime) / 1000);
 		const msg = errorDetail
-			? `布线失败: ${errorDetail}`
-			: `布线未完成 (状态: ${finalStatus}, 已等待 ${elapsed}秒)，PCB 可能过于复杂。`;
+			? t('Routing failed') + ': ' + errorDetail
+			: t('Routing not completed (status: ${1}, waited ${2}s), PCB may be too complex.', finalStatus, elapsed.toString());
 		console.log(`[KicadBridge] Routing failed: status=${finalStatus}, error=${errorDetail}`);
 		sendToIframe('routing-complete', { error: msg });
 		currentJobId = null; _G.__kicadBridgeJobId = null;
@@ -820,18 +820,18 @@ onIframeMessage('start-routing', async (config: any) => {
 			result = await client.getResult(jobId);
 		console.log(`[KicadBridge] Result received: status=${result.status}, tracks=${(result.tracks||[]).length}, vias=${(result.vias||[]).length}`);
 	} catch (e: any) {
-		sendToIframe('routing-complete', { error: `获取结果失败: ${e?.message ?? e}` });
+		sendToIframe('routing-complete', { error: t('Get result failed: ${1}', e?.message ?? e) });
 		currentJobId = null; _G.__kicadBridgeJobId = null;
 		return;
 	}
 
 	if (result.status === 'failed' || result.status === 'cancelled') {
-		sendToIframe('routing-complete', { error: result.error || '布线失败' });
+		sendToIframe('routing-complete', { error: result.error || t('Routing failed') });
 		currentJobId = null; _G.__kicadBridgeJobId = null;
 		return;
 	}
 
-	sendToIframe('routing-progress', { percent: 90, message: '正在写入布线结果...' });
+	sendToIframe('routing-progress', { percent: 90, message: t('Applying routing results...') });
 
 	let tracksCreated = 0;
 	let viasCreated = 0;
@@ -843,7 +843,7 @@ onIframeMessage('start-routing', async (config: any) => {
 		tracksCreated = applied.tracksCreated;
 		viasCreated = applied.viasCreated;
 	} catch (e: any) {
-		sendToIframe('routing-complete', { error: `写入失败: ${e?.message ?? e}` });
+		sendToIframe('routing-complete', { error: t('Write failed: ${1}', e?.message ?? e) });
 		currentJobId = null; _G.__kicadBridgeJobId = null;
 		return;
 	}
@@ -872,7 +872,7 @@ onIframeMessage('cancel-routing', async () => {
 		currentJobId = null; _G.__kicadBridgeJobId = null;
 	}
 	isRoutingInProgress = false; _G.__kicadBridgeRouting = false;
-	sendToIframe('routing-complete', { error: '已被用户取消' });
+	sendToIframe('routing-complete', { error: t('Operation cancelled') });
 });
 
 onIframeMessage('get-nets', async () => {
