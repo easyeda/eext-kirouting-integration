@@ -1,5 +1,7 @@
 # KiRouting Integration
 
+[English](README_EN.md) | 中文
+
 将 **KiCadRouting Tools**（Rust 加速 A* 自动布线引擎）桥接到 **嘉立创EDA专业版（EasyEDA Pro）** 的完整解决方案。
 
 ## 项目地址
