@@ -58,12 +58,12 @@
 	"DRC validation failed:\n${1}": "DRC 校验失败:\n${1}",
 	"KiRouting Bridge Not Running": "KiRouting 桥接服务未启动",
 	"Please follow these steps to start the bridge server:": "请按以下步骤配置并启动桥接服务：",
-	"1. Download and install Python 3.10+ (skip if installed)\n2. Download the startup script ZIP, extract it, then run start_server.bat\n3. Click \"Retry\" after the service starts successfully": "1. 下载并安装 Python 3.10+（如已安装可跳过）\n2. 下载启动脚本压缩包，解压后运行启动脚本 start_server.bat\n3. 等待服务启动成功后点击\"重新检测\"",
+	"1. Download and install Python 3.10+ (skip if installed)\n2. Download the startup script ZIP for your OS, extract it, then run\n3. Click \"Retry\" after the service starts successfully": "1. 下载并安装 Python 3.10+（如已安装可跳过）\n2. 根据系统下载对应启动脚本压缩包，解压后运行\n3. 等待服务启动成功后点击\"重新检测\"",
 	"1. Install Python": "1. 安装 Python",
-	"2. Download Script": "2. 下载启动脚本",
+	"2. Download Script:": "2. 下载启动脚本：",
 	"3. Retry": "3. 重新检测",
 	"Detecting service...": "正在检测服务...",
 	"Service not detected, please confirm it is running": "服务仍未检测到，请确认已启动",
 	"Connected! Opening routing tool...": "服务已连接，正在打开布线工具...",
-	"Downloaded. Extract and double-click to run.": "下载完成，请解压后双击运行"
+	"Downloaded. Extract and run the script.": "下载完成，请解压后运行脚本"
 }

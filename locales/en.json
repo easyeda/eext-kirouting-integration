@@ -58,12 +58,12 @@
 	"DRC validation failed:\n${1}": "DRC validation failed:\n${1}",
 	"KiRouting Bridge Not Running": "KiRouting Bridge Not Running",
 	"Please follow these steps to start the bridge server:": "Please follow these steps to start the bridge server:",
-	"1. Download and install Python 3.10+ (skip if installed)\n2. Download the startup script ZIP, extract it, then run start_server.bat\n3. Click \"Retry\" after the service starts successfully": "1. Download and install Python 3.10+ (skip if installed)\n2. Download the startup script ZIP, extract it, then run start_server.bat\n3. Click \"Retry\" after the service starts successfully",
+	"1. Download and install Python 3.10+ (skip if installed)\n2. Download the startup script ZIP for your OS, extract it, then run\n3. Click \"Retry\" after the service starts successfully": "1. Download and install Python 3.10+ (skip if installed)\n2. Download the startup script ZIP for your OS, extract it, then run\n3. Click \"Retry\" after the service starts successfully",
 	"1. Install Python": "1. Install Python",
-	"2. Download Script": "2. Download Script",
+	"2. Download Script:": "2. Download Script:",
 	"3. Retry": "3. Retry",
 	"Detecting service...": "Detecting service...",
 	"Service not detected, please confirm it is running": "Service not detected, please confirm it is running",
 	"Connected! Opening routing tool...": "Connected! Opening routing tool...",
-	"Downloaded. Extract and double-click to run.": "Downloaded. Extract and double-click to run."
+	"Downloaded. Extract and run the script.": "Downloaded. Extract and run the script."
 }
