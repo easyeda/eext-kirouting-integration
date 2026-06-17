@@ -119,33 +119,22 @@ if not exist "!TOOLS_DIR!\route.py" (
 )
 echo   KiCadRoutingTools OK
 
-REM --- Step 4b: Build Rust router ---
-set "RUST_LIB=!TOOLS_DIR!\rust_router\rust_astar_router.pyd"
+REM --- Step 4b: Setup Rust router ---
+set "RUST_LIB=!TOOLS_DIR!\rust_router\grid_router.pyd"
 if not exist "!RUST_LIB!" (
-    where cargo >nul 2>&1
+    echo   Setting up Rust router (downloading prebuilt binary, or building from source)...
+    cd /d "!TOOLS_DIR!"
+    python build_router.py
     if errorlevel 1 (
         echo.
-        echo   WARNING: Rust toolchain not found.
-        echo   The Rust router is REQUIRED for acceptable routing speed.
-        echo   Please install Rust from https://rustup.rs/ and re-run this script.
+        echo   ERROR: Rust router setup failed.
+        echo   Check your network, or install Rust from https://rustup.rs/ and re-run.
         echo.
         pause
         exit /b 1
-    ) else (
-        echo   Building Rust router...
-        cd /d "!TOOLS_DIR!"
-        python build_router.py
-        if errorlevel 1 (
-            echo.
-            echo   ERROR: Rust router build failed.
-            echo   Please ensure Rust is properly installed: https://rustup.rs/
-            echo.
-            pause
-            exit /b 1
-        )
-        echo   Rust router built successfully
-        cd /d "%~dp0"
     )
+    echo   Rust router ready
+    cd /d "%~dp0"
 ) else (
     echo   Rust router OK
 )
