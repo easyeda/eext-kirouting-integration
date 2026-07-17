@@ -178,7 +178,7 @@ body {
   'use strict';
   var edaObj = (typeof eda !== 'undefined') ? eda : (window.parent && window.parent.eda);
   function t(tag, ...args) {
-	  if (edaObj && edaObj.sys_I18n) return edaObj.sys_I18n.text(tag, undefined, undefined, ...args);
+	  if (edaObj && edaObj.sys_I18n) return edaObj.sys_I18n.text(tag, 'k1c4d2r0u7t1n9g3b5r8i0d4g6e2p2v2', undefined, ...args);
 	  return tag;
   }
   var eda = window.eda;
@@ -283,6 +283,7 @@ body {
     });
     onExtMessage('drc-limits', function(data) {
       drcLimits = data;
+      applyDrcDefaults();
     });
     onExtMessage('routing-progress', function(data) {
       setProgress(data.percent || 0);
@@ -295,7 +296,7 @@ body {
       } else {
         var s = data.stats || {};
         setProgress(100);
-        setStatus(t('Done: ${1} nets, ${2} tracks, ${3} vias (${4}s)', (s.nets_routed||0).toString(), (s.tracks_added||0).toString(), (s.vias_added||0).toString(), (s.time_seconds||0).toFixed(1)));
+        setStatus('Done: ' + (s.nets_routed||0) + ' nets, ' + (s.tracks_added||0) + ' tracks, ' + (s.vias_added||0) + ' vias (' + (s.time_seconds||0).toFixed(1) + 's)');
         selectedNets = {};
         sendToExt('get-nets', {});
       }
@@ -382,7 +383,7 @@ body {
     var total = allNets.length;
     var conn = allNets.filter(function(n) { return n.isConnected; }).length;
     var sel = Object.keys(selectedNets).length;
-    bar.textContent = t('Total: ${1} | Connected: ${2} | Pending: ${3} | Selected: ${4}', total.toString(), conn.toString(), (total - conn).toString(), sel.toString());
+    bar.textContent = 'Total: ' + total + ' | Connected: ' + conn + ' | Pending: ' + (total - conn) + ' | Selected: ' + sel;
   }
 
   function bindEvents() {
@@ -438,7 +439,7 @@ body {
         }
       }
       if (errors.length > 0) {
-        setStatus(t('DRC validation failed:\n${1}', errors.join('\n')), true);
+        setStatus('DRC validation failed:\n' + errors.join('\n'), true);
         return;
       }
     }
@@ -467,7 +468,7 @@ body {
     _id('btn-route').disabled = true;
     _id('btn-cancel').disabled = false;
     setProgress(5);
-    setStatus(t('Routing - ${1} nets selected', netsToRoute.length.toString()));
+    setStatus('Routing - ' + netsToRoute.length + ' nets selected');
     saveSettings();
     sendToExt('start-routing', config);
   }
@@ -503,6 +504,29 @@ body {
         if (s[key] !== undefined && s[key] !== null) { var el = _id(elId); if (el) el.value = s[key]; }
       });
     } catch(e) {}
+  }
+
+  // On open, clamp each routing parameter up to the board's DRC minimum.
+  // Values already meeting DRC are left untouched; only violations are raised.
+  function applyDrcDefaults() {
+    if (!drcLimits) return;
+    function clampToMin(id, minVal) {
+      if (!(minVal > 0)) return;            // no DRC rule for this param → leave as-is
+      var el = _id(id);
+      if (!el) return;
+      var cur = parseFloat(el.value);
+      var minRounded = Math.ceil(minVal * 1000) / 1000;  // round up to 3dp so value stays >= min
+      if (isNaN(cur) || cur < minRounded) el.value = minRounded;
+    }
+    var twMin = drcLimits.minTrackWidth || 0;
+    clampToMin('track-width', twMin);
+    clampToMin('clearance', drcLimits.minClearance || 0);
+    clampToMin('via-size', drcLimits.minViaOuter || 0);
+    clampToMin('via-drill', drcLimits.minViaDrill || 0);
+    // Board edge: DRC effective min = minEdgeClearance + half track width; also floor at 0.5mm (router requirement)
+    var becMin = (drcLimits.minEdgeClearance || 0) + twMin / 2;
+    if (becMin < 0.5) becMin = 0.5;
+    clampToMin('board-edge-clearance', becMin);
   }
 
   if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', onLoad); }

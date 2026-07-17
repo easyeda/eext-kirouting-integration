@@ -366,6 +366,7 @@ def _run_subprocess(
     # Wait for completion or cancellation
     while proc.poll() is None:
         if cancel_event is not None and cancel_event.is_set():
+            print(f"[CANCEL] terminating routing subprocess (pid={proc.pid})", flush=True)
             proc.terminate()
             try:
                 proc.wait(timeout=5)
@@ -454,19 +455,13 @@ def run_routing(pcb_data: PCBJsonData, cancel_event: Optional[threading.Event] =
                 config, cancel_event,
             )
 
-        else:  # single_ended (default)
-            try:
-                elapsed, log_output = _run_direct_api(
-                    input_path, output_path,
-                    config, nets, cancel_event,
-                )
-            except ImportError as e:
-                log_output = f"Direct API import failed ({e}), falling back to subprocess\n"
-                elapsed, sub_log = _run_subprocess(
-                    input_path, output_path,
-                    config, nets, cancel_event,
-                )
-                log_output += sub_log
+        else:  # single_ended (default) — run as a subprocess so the job is
+               # killable on cancel/timeout (an in-process batch_route stuck in a
+               # Rust A* call cannot be interrupted from Python).
+            elapsed, log_output = _run_subprocess(
+                input_path, output_path,
+                config, nets, cancel_event,
+            )
 
         if cancel_event is not None and cancel_event.is_set():
             raise RuntimeError("Routing cancelled by user")

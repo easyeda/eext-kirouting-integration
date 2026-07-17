@@ -47,7 +47,7 @@ set "DOWNLOAD_OK=1"
 for %%f in (%FILES%) do (
     if not exist "!SERVER_DIR!\%%f" (
         echo   Downloading %%f...
-        curl -sL "%REPO_BASE%/%%f" -o "!SERVER_DIR!\%%f"
+        curl -fsSL "%REPO_BASE%/%%f" -o "!SERVER_DIR!\%%f"
         if errorlevel 1 (
             set "DOWNLOAD_OK=0"
             echo   ERROR: Failed to download %%f
@@ -72,15 +72,21 @@ echo [3/5] Checking Python dependencies...
 
 python -c "import fastapi; import uvicorn; import numpy" 2>nul
 if errorlevel 1 (
-    echo   Installing dependencies...
-    pip install -r "!SERVER_DIR!\requirements.txt"
+    echo   Installing dependencies ^(this may take a few minutes^)...
+    python -m pip install --timeout 60 --retries 5 -r "!SERVER_DIR!\requirements.txt"
     if errorlevel 1 (
-        echo.
-        echo ERROR: Failed to install Python dependencies.
-        echo Try running manually: pip install -r requirements.txt
-        echo.
-        pause
-        exit /b 1
+        echo   Official PyPI failed; retrying via Tsinghua mirror ^(faster in China^)...
+        python -m pip install --timeout 60 --retries 5 -i https://pypi.tuna.tsinghua.edu.cn/simple -r "!SERVER_DIR!\requirements.txt"
+        if errorlevel 1 (
+            echo.
+            echo ERROR: Failed to install Python dependencies.
+            echo The exact pip error is shown above this message.
+            echo Try manually with the China mirror:
+            echo   python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
+            echo.
+            pause
+            exit /b 1
+        )
     )
 )
 echo   Dependencies OK
@@ -93,7 +99,7 @@ set "TOOLS_DIR=%~dp0KiCadRoutingTools"
 if not exist "!TOOLS_DIR!\route.py" (
     echo   KiCadRoutingTools not found, downloading...
     set "ZIP_FILE=%~dp0KiCadRoutingTools.zip"
-    curl -sL "https://github.com/drandyhaas/KiCadRoutingTools/archive/refs/heads/main.zip" -o "!ZIP_FILE!"
+    curl -fsSL "https://github.com/drandyhaas/KiCadRoutingTools/archive/refs/heads/main.zip" -o "!ZIP_FILE!"
     if errorlevel 1 (
         echo.
         echo ERROR: Failed to download KiCadRoutingTools.
@@ -122,7 +128,7 @@ echo   KiCadRoutingTools OK
 REM --- Step 4b: Setup Rust router ---
 set "RUST_LIB=!TOOLS_DIR!\rust_router\grid_router.pyd"
 if not exist "!RUST_LIB!" (
-    echo   Setting up Rust router (downloading prebuilt binary, or building from source)...
+    echo   Setting up Rust router ^(downloading prebuilt binary, or building from source^)...
     cd /d "!TOOLS_DIR!"
     python build_router.py
     if errorlevel 1 (

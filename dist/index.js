@@ -779,6 +779,10 @@ var edaEsbuildExportName = (() => {
         console.log(`[KicadBridge] Poll timeout, final status: ${finalStatus}`);
       }
       if (finalStatus !== "completed") {
+        try {
+          await client.cancelJob(jobId);
+        } catch (_) {
+        }
         let errorDetail = "";
         try {
           const res = await client.getResult(jobId);

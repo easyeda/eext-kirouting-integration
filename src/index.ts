@@ -799,6 +799,9 @@ onIframeMessage('start-routing', async (config: any) => {
 
 	// Only proceed to fetch result if routing actually completed
 	if (finalStatus !== 'completed') {
+		// Server may still be routing — tell it to kill the job so it doesn't keep
+		// running (and block the next routing) after we give up.
+		try { await client.cancelJob(jobId); } catch (_) {}
 		let errorDetail = '';
 		try {
 			const res = await client.getResult(jobId);

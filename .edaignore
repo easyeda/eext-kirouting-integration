@@ -20,3 +20,12 @@ debug.log
 /bridge_server/KiCadRoutingTools/
 /bridge_server/bridge_server/
 /bridge_server/__pycache__/
+/.git/
+/.claude/
+/.github/
+/CLAUDE.md
+/generate_html.py
+/bridge_server/diagnose.bat
+/bridge_server/diagnose.log
+/bridge_server/run_trace.log
+/bridge_server/run_trace.log.err

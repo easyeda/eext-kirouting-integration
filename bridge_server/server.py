@@ -49,7 +49,7 @@ _active_job_id: str = ""
 def _run_routing_job(job: Job):
     """Background thread that runs the routing pipeline."""
     global _active_job_id
-    if not _routing_lock.acquire(timeout=1):
+    if not _routing_lock.acquire(timeout=30):
         job.status = "failed"
         job.result = RoutingResult(status="failed", error="Another routing job is already running")
         print(f"[ERROR] Job {job.job_id}: failed to acquire lock")
@@ -101,6 +101,7 @@ def _run_routing_job(job: Job):
 
     except BaseException as e:
         if job.cancelled.is_set():
+            print(f"[CANCEL] job {job.job_id} cancelled by client — subprocess killed, lock released", flush=True)
             job.status = "cancelled"
             job.result = RoutingResult(status="cancelled", error="Cancelled by user")
         else:

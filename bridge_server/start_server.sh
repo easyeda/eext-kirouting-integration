@@ -78,7 +78,7 @@ FILES="server.py routing_runner.py easyeda_to_kicad.py kicad_diff.py layer_mappi
 
 # Pick a downloader.
 if command -v curl >/dev/null 2>&1; then
-    DL() { curl -sL "$1" -o "$2"; }
+    DL() { curl -fsSL "$1" -o "$2"; }
 elif command -v wget >/dev/null 2>&1; then
     DL() { wget -q "$1" -O "$2"; }
 else
@@ -102,9 +102,12 @@ echo
 echo "[3/5] Checking Python dependencies..."
 
 if ! "$PY" -c "import fastapi; import uvicorn; import numpy" 2>/dev/null; then
-    echo "  Installing dependencies..."
-    if ! "$PY" -m pip install -r "$SERVER_DIR/requirements.txt"; then
-        fail "Failed to install Python dependencies. Try manually: $PY -m pip install -r requirements.txt"
+    echo "  Installing dependencies (this may take a few minutes)..."
+    if ! "$PY" -m pip install --timeout 60 --retries 5 -r "$SERVER_DIR/requirements.txt"; then
+        echo "  Official PyPI failed; retrying via Tsinghua mirror (faster in China)..."
+        if ! "$PY" -m pip install --timeout 60 --retries 5 -i https://pypi.tuna.tsinghua.edu.cn/simple -r "$SERVER_DIR/requirements.txt"; then
+            fail "Failed to install Python dependencies. The exact pip error is shown above. Manual retry with the China mirror: $PY -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt"
+        fi
     fi
 fi
 echo "  Dependencies OK"
