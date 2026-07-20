@@ -377,11 +377,14 @@ def _run_subprocess(
     env = os.environ.copy()
     env['PYTHONPATH'] = KICAD_TOOLS_DIR + os.pathsep + env.get('PYTHONPATH', '')
 
+    # Redirect stdout+stderr to a temp file (NOT subprocess.PIPE). PIPE without
+    # draining deadlocks once verbose routing output fills the 64 KB OS pipe
+    # buffer, hanging the subprocess until the client times out.
+    out_file = tempfile.TemporaryFile()
     proc = subprocess.Popen(
         cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+        stdout=out_file,
+        stderr=subprocess.STDOUT,
         cwd=KICAD_TOOLS_DIR,
         env=env,
     )
@@ -395,12 +398,14 @@ def _run_subprocess(
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 proc.kill()
+            out_file.close()
             raise RuntimeError("Routing cancelled by user")
         time.sleep(0.5)
 
-    stdout, stderr = proc.communicate()
+    out_file.seek(0)
+    log_output = out_file.read().decode('utf-8', errors='replace')
+    out_file.close()
     elapsed = time.time() - start_time
-    log_output = stdout + '\n' + stderr
 
     if proc.returncode != 0 and not os.path.exists(output_path):
         raise RuntimeError(
