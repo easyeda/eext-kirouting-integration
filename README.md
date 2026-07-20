@@ -42,6 +42,11 @@
 
 也可以手动安装：从 [GitHub Releases](https://github.com/easyeda/eext-kirouting-integration/releases/latest) 下载 `.eext` 文件，在 **扩展** → **扩展管理器** → **从本地安装** 中导入。
 
+> **重要**：安装后需在 EasyEDA Pro 设置中开启 **外部交互**（External Interaction）选项，否则扩展无法连接本地 KiRouting 服务。
+
+![开启外部交互](images/开启外部交互.png)
+
+
 ### 第二步：获取启动脚本
 
 从本项目仓库获取桥接服务器：
@@ -53,6 +58,8 @@ git clone https://github.com/easyeda/eext-kirouting-integration.git
 或直接在 [项目页面](https://github.com/easyeda/eext-kirouting-integration) 点击 **Code** → **Download ZIP** 下载并解压。
 
 启动脚本位于项目目录中的 `bridge_server/start_server.bat`。
+
+![获取启动脚本](images/获取启动脚本.png)
 
 ### 第三步：启动桥接服务器
 
@@ -71,7 +78,11 @@ git clone https://github.com/easyeda/eext-kirouting-integration.git
 1. 打开一个 PCB 文件
 2. 顶部菜单栏点击 **KiRouting自动布线** → **打开布线工具...**
 3. 在弹出的对话框中选择网络、配置参数、点击 **开始布线**
+
+![布线界面](images/布线界面.png)
 4. 等待布线完成，结果自动写回 PCB
+
+![布线结果](images/布线结果.png)
 
 > 如果服务器未启动，扩展会弹出引导对话框，提供下载链接和操作说明。
 
