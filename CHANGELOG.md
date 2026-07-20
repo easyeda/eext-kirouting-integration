@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.5 (2026-07-20)
+
+### 修复
+- **KiCadRoutingTools 解压目录名修复**：GitHub tag 归档会去掉 `v` 前缀（实际目录是 `KiCadRoutingTools-0.18.0` 不是 `-v0.18.0`），导致 `ren` 失败。改用通配符 `KiCadRoutingTools-*` 匹配，兼容任何版本命名。
+
 ## v1.0.4 (2026-07-20)
 
 ### 修复

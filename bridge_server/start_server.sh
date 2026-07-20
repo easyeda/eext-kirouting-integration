@@ -132,7 +132,7 @@ if [ ! -f "$TOOLS_DIR/route.py" ]; then
         fail "Neither unzip nor tar is available to extract the archive."
     fi
     rm -rf "$TOOLS_DIR"
-    mv "$SCRIPT_DIR/KiCadRoutingTools-v0.18.0" "$TOOLS_DIR"
+    mv "$SCRIPT_DIR"/KiCadRoutingTools-* "$TOOLS_DIR"
     rm -f "$ZIP_FILE"
 fi
 echo "  KiCadRoutingTools OK"

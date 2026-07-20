@@ -120,7 +120,7 @@ if not exist "!TOOLS_DIR!\route.py" (
             exit /b 1
         )
     )
-    ren "%~dp0KiCadRoutingTools-v0.18.0" KiCadRoutingTools
+    for /d %%D in ("%~dp0KiCadRoutingTools-*") do ren "%%D" KiCadRoutingTools 2>nul
     del "!ZIP_FILE!"
 )
 echo   KiCadRoutingTools OK
