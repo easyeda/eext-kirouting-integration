@@ -99,7 +99,7 @@ set "TOOLS_DIR=%~dp0KiCadRoutingTools"
 if not exist "!TOOLS_DIR!\route.py" (
     echo   KiCadRoutingTools not found, downloading...
     set "ZIP_FILE=%~dp0KiCadRoutingTools.zip"
-    curl -fsSL "https://github.com/drandyhaas/KiCadRoutingTools/archive/refs/heads/main.zip" -o "!ZIP_FILE!"
+    curl -fsSL "https://github.com/drandyhaas/KiCadRoutingTools/archive/refs/tags/v0.18.0.zip" -o "!ZIP_FILE!"
     if errorlevel 1 (
         echo.
         echo ERROR: Failed to download KiCadRoutingTools.
@@ -120,7 +120,7 @@ if not exist "!TOOLS_DIR!\route.py" (
             exit /b 1
         )
     )
-    ren "%~dp0KiCadRoutingTools-main" KiCadRoutingTools
+    ren "%~dp0KiCadRoutingTools-v0.18.0" KiCadRoutingTools
     del "!ZIP_FILE!"
 )
 echo   KiCadRoutingTools OK
