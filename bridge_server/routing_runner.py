@@ -41,6 +41,29 @@ if os.path.join(KICAD_TOOLS_DIR, 'rust_router') not in sys.path:
     sys.path.insert(0, os.path.join(KICAD_TOOLS_DIR, 'rust_router'))
 
 
+# --- Local self-patch: fix multi-outline 'outline' UnboundLocalError in the
+# downloaded KiCadRoutingTools/routing_common.py (not yet fixed upstream).
+# Idempotent: only rewrites the file when the buggy line is present, so it is a
+# no-op once patched or once upstream ships the fix.
+def _patch_routing_common():
+    rc = os.path.join(KICAD_TOOLS_DIR, 'routing_common.py')
+    if not os.path.isfile(rc):
+        return
+    try:
+        s = open(rc, encoding='utf-8').read()
+        buggy = '_dist_point_to_polygon(x, y, outline) if has_poly'
+        fixed = 'min(_dist_point_to_polygon(x, y, o) for o in outlines) if has_poly'
+        if buggy in s:
+            open(rc, 'w', encoding='utf-8').write(s.replace(buggy, fixed, 1))
+            print('[PATCH] routing_common.py: applied multi-outline outline fix')
+    except Exception as e:
+        print('[PATCH] routing_common.py: skip (%s)' % e)
+
+
+_patch_routing_common()
+
+
+
 # Minimum parameter constraints (in mm) for basic single-ended routing
 PARAM_MINIMUMS = {
     'track_width': 0.05,
