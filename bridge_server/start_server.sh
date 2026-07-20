@@ -120,7 +120,7 @@ TOOLS_DIR="$SCRIPT_DIR/KiCadRoutingTools"
 if [ ! -f "$TOOLS_DIR/route.py" ]; then
     echo "  KiCadRoutingTools not found, downloading..."
     ZIP_FILE="$SCRIPT_DIR/KiCadRoutingTools.zip"
-    if ! DL "https://github.com/drandyhaas/KiCadRoutingTools/archive/refs/tags/v0.18.0.zip" "$ZIP_FILE"; then
+    if ! DL "https://github.com/drandyhaas/KiCadRoutingTools/archive/refs/heads/main.zip" "$ZIP_FILE"; then
         fail "Failed to download KiCadRoutingTools. Please check your network connection."
     fi
     echo "  Extracting..."
