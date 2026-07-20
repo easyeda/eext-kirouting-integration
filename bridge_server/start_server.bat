@@ -99,7 +99,7 @@ set "TOOLS_DIR=%~dp0KiCadRoutingTools"
 if not exist "!TOOLS_DIR!\route.py" (
     echo   KiCadRoutingTools not found, downloading...
     set "ZIP_FILE=%~dp0KiCadRoutingTools.zip"
-    curl -fsSL "https://github.com/drandyhaas/KiCadRoutingTools/archive/refs/heads/main.zip" -o "!ZIP_FILE!"
+    curl -fsSL "https://github.com/drandyhaas/KiCadRoutingTools/archive/refs/tags/v0.18.0.zip" -o "!ZIP_FILE!"
     if errorlevel 1 (
         echo.
         echo ERROR: Failed to download KiCadRoutingTools.
@@ -130,7 +130,7 @@ set "RUST_LIB=!TOOLS_DIR!\rust_router\grid_router.pyd"
 if not exist "!RUST_LIB!" (
     echo   Setting up Rust router ^(downloading prebuilt binary, or building from source^)...
     cd /d "!TOOLS_DIR!"
-    python build_router.py
+    python build_router.py --tag v0.18.0
     if errorlevel 1 (
         echo.
         echo   ERROR: Rust router setup failed.
