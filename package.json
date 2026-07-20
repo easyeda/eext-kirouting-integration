@@ -1,6 +1,6 @@
 {
 	"name": "kirouting-integration",
-	"version": "1.0.7",
+	"version": "1.0.2",
 	"description": "EasyEDA Pro 扩展：通过桥接服务器调用 KiCadRouting Tools 实现 PCB 自动布线",
 	"author": "",
 	"license": "Apache-2.0",
